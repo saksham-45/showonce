@@ -20,7 +20,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json(graph);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Pipeline failed.";
-    const status = message.includes("META_API_KEY") ? 400 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const clientError =
+      message.includes("META_API_KEY") ||
+      message.includes("not valid video") ||
+      message.includes("no frames");
+    return NextResponse.json({ error: message }, { status: clientError ? 400 : 500 });
   }
 }

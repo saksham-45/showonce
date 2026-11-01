@@ -32,27 +32,31 @@ export async function extractMedia(skillDirPath: string, framesPerSecond: number
   const audioPath = path.join(skillDirPath, "audio.wav");
   await fs.mkdir(framesDir, { recursive: true });
 
-  await execFileAsync("ffmpeg", [
-    "-y",
-    "-i",
-    clipPath,
-    "-vf",
-    `fps=${framesPerSecond}`,
-    "-q:v",
-    "3",
-    path.join(framesDir, "frame-%04d.jpg"),
-  ]);
-  await execFileAsync("ffmpeg", [
-    "-y",
-    "-i",
-    clipPath,
-    "-vn",
-    "-ac",
-    "1",
-    "-ar",
-    "16000",
-    audioPath,
-  ]);
+  try {
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-i",
+      clipPath,
+      "-vf",
+      `fps=${framesPerSecond}`,
+      "-q:v",
+      "3",
+      path.join(framesDir, "frame-%04d.jpg"),
+    ]);
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-i",
+      clipPath,
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      audioPath,
+    ]);
+  } catch {
+    throw new Error("Uploaded clip is not valid video: ffmpeg could not decode it.");
+  }
 
   const names = (await fs.readdir(framesDir)).filter((n) => n.endsWith(".jpg")).sort();
   const durationSeconds = await probeDurationSeconds(clipPath);
