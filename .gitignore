@@ -5,6 +5,8 @@ build/
 *.log
 .env
 .env.local
+/public/skills/
+/data/
 __pycache__/
 .venv/
 .DS_Store
