@@ -34,6 +34,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const stallTicksRef = useRef(0);
   const graphRef = useRef<SkillGraph | null>(null);
   const currentRef = useRef(0);
   graphRef.current = graph;
@@ -88,7 +89,16 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       const canvas = canvasRef.current;
       const active = graphRef.current;
       if (!video || !canvas || !active) return;
-      if (video.readyState < 2 || video.videoWidth === 0) return;
+      if (video.readyState < 2 || video.videoWidth === 0) {
+        // The camera is on but no picture is flowing; say so instead of
+        // watching silently. Three missed ticks is ~9 seconds.
+        stallTicksRef.current += 1;
+        if (stallTicksRef.current === 3) {
+          setCameraError("Camera is on but no picture is arriving. Check the lens cover and try another browser.");
+        }
+        return;
+      }
+      stallTicksRef.current = 0;
       const step = active.steps[currentRef.current];
       if (!step) return;
       canvas.width = video.videoWidth;
