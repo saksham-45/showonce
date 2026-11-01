@@ -9,6 +9,11 @@ import { skillDir } from "@/lib/store";
 // Body: { stepId: string, frame: string } where frame is a data URL
 // (data:image/jpeg;base64,...) or bare base64. Returns
 // { verdict: correct|nudge|wrong, correction: string, advance: boolean }.
+
+// A still every 3 seconds should be kilobytes; refuse multi-megabyte bodies
+// before base64-decoding them.
+const MAX_FRAME_BYTES = 8 * 1024 * 1024;
+
 function frameToBytes(frame: unknown): Buffer | null {
   if (typeof frame !== "string" || frame.length === 0) return null;
   const comma = frame.indexOf(",");
@@ -47,6 +52,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const step = graph.steps.find((candidate) => candidate.id === body.stepId);
   if (!step) {
     return NextResponse.json({ error: "Unknown step for this skill." }, { status: 400 });
+  }
+  if (typeof body.frame === "string" && body.frame.length > MAX_FRAME_BYTES) {
+    return NextResponse.json({ error: "Frame too large." }, { status: 413 });
   }
 
   let referenceBytes: Buffer | null = null;
