@@ -49,6 +49,8 @@ export async function runLearnPipeline(skillId: string, title: string): Promise<
 
   const transcript = await provider.transcribe(audioPath);
   await fs.writeFile(path.join(dir, "transcript.json"), JSON.stringify(transcript, null, 2));
+  // An empty transcript is tolerated by design: silent clips still fuse from
+  // vision and masks. Only a fusion with zero steps fails validation below.
 
   const fused = await provider.fuse({ title, durationSeconds, frames, segmentations, transcript });
 

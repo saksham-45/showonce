@@ -33,6 +33,16 @@ check "empty-upload-rejected" 400 -F 'clip=@/tmp/smoke-empty.mp4' -F 'title=x' "
 echo "not a video" > /tmp/smoke-note.txt
 check "wrong-type-rejected" 400 -F 'clip=@/tmp/smoke-note.txt;type=text/plain' -F 'title=x' "$BASE/api/skills"
 
+truncate -s 201M /tmp/smoke-huge.mp4
+check "oversized-rejected" 413 -F 'clip=@/tmp/smoke-huge.mp4;type=video/mp4' -F 'title=x' "$BASE/api/skills"
+rm -f /tmp/smoke-huge.mp4
+
+ffmpeg -y -v error -f lavfi -i "sine=frequency=440:duration=2" -c:a aac /tmp/smoke-audio-only.m4a
+ID="$(curl -s -F 'clip=@/tmp/smoke-audio-only.m4a;type=video/mp4' -F 'title=silent' "$BASE/api/skills" | python3 -c 'import json,sys; print(json.load(sys.stdin)["skillId"])')"
+check "audio-only-run-rejected" 400 -X POST "$BASE/api/skills/$ID/run"
+grep -q -E "no frames|not valid video" /tmp/smoke-learn-body || { echo "FAIL audio-only message"; exit 1; }
+echo "ok audio-only message names the cause"
+
 ID="$(curl -s -F 'clip=@/tmp/smoke-note.txt;type=video/mp4' -F 'title=junk' "$BASE/api/skills" | python3 -c 'import json,sys; print(json.load(sys.stdin)["skillId"])')"
 check "invalid-video-run-rejected" 400 -X POST "$BASE/api/skills/$ID/run"
 grep -q "not valid video" /tmp/smoke-learn-body || { echo "FAIL invalid-video message"; exit 1; }
