@@ -23,6 +23,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const clientError =
       message.includes("META_API_KEY") ||
       message.includes("not valid video") ||
+      message.includes("unknown keyframe") ||
       message.includes("no frames");
     return NextResponse.json({ error: message }, { status: clientError ? 400 : 500 });
   }

@@ -60,8 +60,26 @@ async function chatCompletions(apiBase: string, apiKey: string, model: string, m
   if (!res.ok) {
     throw new Error(`Meta API ${model} failed: ${res.status} ${await res.text()}`);
   }
-  const body = (await res.json()) as { choices: { message: { content: string } }[] };
-  return body.choices[0].message.content;
+  let body: { choices: { message: { content: string } }[] };
+  try {
+    body = (await res.json()) as { choices: { message: { content: string } }[] };
+  } catch {
+    throw new Error(`Meta API ${model} returned a non-JSON response.`);
+  }
+  const content = body.choices?.[0]?.message?.content;
+  if (typeof content !== "string") {
+    throw new Error(`Meta API ${model} returned an unexpected response shape.`);
+  }
+  return content;
+}
+
+// Parse model-emitted JSON with the model named in the failure.
+function parseModelJson<T>(model: string, text: string): T {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Meta API ${model} returned malformed JSON.`);
+  }
 }
 
 const FUSE_SYSTEM_PROMPT = [
@@ -108,7 +126,10 @@ export class MetaProvider implements LearnProvider {
         throw new Error(`Meta API sam-3.1 failed: ${res.status} ${await res.text()}`);
       }
       const body = (await res.json()) as { choices: { message: { content: string } }[] };
-      const parsed = JSON.parse(body.choices[0].message.content) as { regions: FrameSegmentation["regions"] };
+      const parsed = parseModelJson<{ regions: FrameSegmentation["regions"] }>(
+        "sam-3.1",
+        body.choices[0].message.content,
+      );
       out.push({ frame: frame.file, regions: parsed.regions ?? [] });
     }
     return out;
@@ -154,7 +175,7 @@ export class MetaProvider implements LearnProvider {
         },
       ],
     );
-    return JSON.parse(content) as { title: string; steps: StepDraft[] };
+    return parseModelJson<{ title: string; steps: StepDraft[] }>("muse-spark-1.3", content);
   }
 
   async referenceImage(step: StepDraft): Promise<Buffer> {
