@@ -97,15 +97,21 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       if (!ctx) return;
       ctx.drawImage(video, 0, 0);
       const frame = canvas.toDataURL("image/jpeg", 0.8);
+      const requestedId = step.id;
       setChecking(true);
       try {
         const res = await fetch(`/api/skills/${active.skillId}/coach`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stepId: step.id, frame }),
+          body: JSON.stringify({ stepId: requestedId, frame }),
         });
         const reply = (await res.json()) as CoachReply & { error?: string };
         if (!res.ok) return;
+        // Drop stale responses: a slow verdict for an earlier step must not
+        // advance (or overwrite feedback for) the step the learner is on now.
+        const live = graphRef.current;
+        const liveStep = live?.steps[currentRef.current];
+        if (!liveStep || liveStep.id !== requestedId) return;
         setLastReply(reply);
         if (reply.correction) speak(reply.correction);
         if (reply.advance) {
