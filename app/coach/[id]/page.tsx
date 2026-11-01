@@ -138,6 +138,14 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
 
   async function start() {
     setCameraError(null);
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== "function"
+    ) {
+      setCameraError("This browser exposes no camera. Open this page over localhost or HTTPS and try again.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       streamRef.current = stream;
@@ -147,8 +155,12 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         await video.play();
       }
       setCoaching(true);
-    } catch {
-      setCameraError("Camera unavailable. Allow camera access and try again.");
+    } catch (err) {
+      setCameraError(
+        err instanceof DOMException && err.name === "NotAllowedError"
+          ? "Camera access was denied. Allow it in the address bar, then press start."
+          : "Camera unavailable. Check that no other app is using it and try again.",
+      );
     }
   }
 
@@ -176,6 +188,11 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         <p style={{ color: "#a00" }}>{loadError}</p>
       ) : !graph ? (
         <p>Loading skill…</p>
+      ) : graph.steps.length === 0 ? (
+        <p>
+          This skill has no steps to coach yet.{" "}
+          <a href={`/skills/${id}`}>Run the Learn pipeline first</a>.
+        </p>
       ) : complete ? (
         <section
           style={{
