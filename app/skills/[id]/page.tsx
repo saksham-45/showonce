@@ -39,6 +39,8 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
     <>
       <p>
         <a href="/">All skills</a>
+        {" · "}
+        <a href={`/coach/${id}`}>Coach view</a>
       </p>
       <h1 style={{ fontSize: 28 }}>{graph ? graph.title : "Skill"}</h1>
 

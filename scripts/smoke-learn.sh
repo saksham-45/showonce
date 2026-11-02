@@ -64,6 +64,9 @@ print("ok skill graph: 5 complete steps")
 EOF
 pass=$((pass + 1))
 
+# A production server only serves the public files present at boot, so these
+# asset URLs must resolve for a skill learned after boot (via the
+# skill-assets route rewrites), not just for older skills.
 check "clip-serves" 200 "$BASE/skills/$ID/clip.mp4"
 check "keyframe-serves" 200 "$BASE/skills/$ID/keyframes/step-1.jpg"
 check "reference-serves" 200 "$BASE/skills/$ID/references/step-1.png"

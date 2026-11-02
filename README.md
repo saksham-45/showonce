@@ -24,6 +24,9 @@ Stack: Next.js App Router + TypeScript. The server-side pipeline
 6. `muse-image-1.0` generates one corrective reference image per step.
 7. Everything persists per skill under `public/skills/<skillId>/`; the skill
    page (`/skills/<id>`) shows the clip, steps, keyframes, and references.
+   The clip and images are served from disk through the skill-assets route
+   (see the `next.config.ts` rewrites), so a freshly learned skill plays
+   without restarting the server.
 
 Run it:
 
@@ -46,4 +49,26 @@ The key is read from `META_API_KEY` or `.env.local` and is never committed.
 Swapping the placeholder clip for the real expert clip is config-only:
 set `SHOWNCE_CLIP` or upload through the form.
 
-Status: day 1 — Learn pipeline under construction.
+## Coach loop
+
+The skill page links to its Coach view (`/coach/<id>`). The coach page
+(`app/coach/[id]/page.tsx`) loads the learned graph, starts the camera on
+"Start coaching", and judges one still frame every 3 seconds against the
+current step (`POST /api/skills/[id]/coach` with `{ stepId, frame }`, where
+frame is a JPEG data URL or bare base64). The endpoint replies with
+`{ verdict: correct|nudge|wrong, correction, advance }`; `correct` checks
+the step off and moves on, `nudge`/`wrong` hold the learner with a spoken
+correction. `lib/coach.ts` (`compareSkillFrame`) runs the stub-first
+deterministic compare when no key is present and the Meta path (SAM 3.1 plus
+Spark vision against the checkpoint and reference image) when one is, with a
+stub fallback so one failed model call never freezes the live loop. All five
+checkpoints passing lights the completion badge.
+
+Smoke it:
+
+```sh
+SHOWNCE_SMOKE_CLIP=path/to/clip.mp4 sh scripts/smoke-coach.sh http://localhost:3000
+```
+
+Status: Learn plus Coach both run end to end on the stub providers; the live
+one-skill Meta proof runs when `META_API_KEY` is reachable.
