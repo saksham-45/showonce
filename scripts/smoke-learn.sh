@@ -74,4 +74,22 @@ check "skill-page" 200 "$BASE/skills/$ID"
 check "library-page" 200 "$BASE/skills"
 check "profile-page" 200 "$BASE/profile"
 
+# Polish landmarks render in the first paint: the skip link and the
+# current-section mark come from the layout, and each listing shows its
+# loading state before its empty state (no false "nothing here" flash).
+curl -s "$BASE/" -o /tmp/smoke-learn-home.html
+grep -q 'Skip to content' /tmp/smoke-learn-home.html || { echo "FAIL home skip link missing"; exit 1; }
+echo "ok home skip link"
+pass=$((pass + 1))
+grep -q 'Loading sessions' /tmp/smoke-learn-home.html || { echo "FAIL home loading-first state missing"; exit 1; }
+echo "ok home loading-first state"
+pass=$((pass + 1))
+grep -q 'aria-current="page"' /tmp/smoke-learn-home.html || { echo "FAIL home nav current missing"; exit 1; }
+echo "ok home nav marks current section"
+pass=$((pass + 1))
+curl -s "$BASE/skills" -o /tmp/smoke-learn-library.html
+grep -q 'Loading library' /tmp/smoke-learn-library.html || { echo "FAIL library loading-first state missing"; exit 1; }
+echo "ok library loading-first state"
+pass=$((pass + 1))
+
 echo "smoke-learn: $pass checks passed (skill $ID)"

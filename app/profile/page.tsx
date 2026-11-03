@@ -77,13 +77,14 @@ export default function ProfilePage() {
         <form onSubmit={saveName}>
           <div className="field">
             <label htmlFor="profile-name">Display name</label>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="name-row">
               <input
                 id="profile-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="What should the coach call you?"
+                autoComplete="nickname"
               />
               <button type="submit" className="btn">
                 Save
@@ -151,7 +152,9 @@ export default function ProfilePage() {
       <h2 className="display" style={{ fontSize: 30, marginBottom: 12 }}>
         Skill ratings
       </h2>
-      {skills.length === 0 ? (
+      {!ready ? (
+        <p className="lede">Loading your record…</p>
+      ) : skills.length === 0 ? (
         <p className="lede">
           No ratings yet — ratings are earned in the coach, never assigned.{" "}
           <a href="/">Learn a skill</a> first.

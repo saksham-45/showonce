@@ -18,6 +18,7 @@ interface Row {
 
 export default function LibraryPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<LearnerProfile | null>(null);
 
   useEffect(() => {
@@ -46,6 +47,8 @@ export default function LibraryPage() {
         }
       } catch {
         if (!cancelled) setRows([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
     load().catch(() => {});
@@ -63,10 +66,16 @@ export default function LibraryPage() {
         Library
       </h1>
       <p className="meta-line" style={{ marginBottom: 24 }}>
-        {rows.length === 0 ? "No skills learned yet" : `${rows.length} learned skill${rows.length === 1 ? "" : "s"}`}
+        {loading
+          ? "Loading library…"
+          : rows.length === 0
+            ? "No skills learned yet"
+            : `${rows.length} learned skill${rows.length === 1 ? "" : "s"}`}
       </p>
 
-      {rows.length === 0 ? (
+      {loading ? (
+        <p className="lede">Loading library…</p>
+      ) : rows.length === 0 ? (
         <p className="lede">
           Nothing here yet. <a href="/">Learn your first skill</a> and it lands on this shelf.
         </p>

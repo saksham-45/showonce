@@ -38,7 +38,7 @@ export default function SkillFinder({ coach = false }: { coach?: boolean }) {
         />
       </div>
       {matches.length > 0 ? (
-        <ul className="finder-results">
+        <ul className="finder-results" aria-label="Matching learned skills">
           {matches.map((skill) => (
             <li key={skill.skillId}>
               <a href={coach ? `/coach/${skill.skillId}` : `/skills/${skill.skillId}`}>
@@ -50,7 +50,7 @@ export default function SkillFinder({ coach = false }: { coach?: boolean }) {
         </ul>
       ) : null}
       {showEmpty ? (
-        <p className="finder-empty">
+        <p className="finder-empty" role="status">
           No learned skill matches “{query.trim()}”. Upload the clip above to teach it.
         </p>
       ) : null}

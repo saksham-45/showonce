@@ -43,6 +43,15 @@ echo "ok coach graph: 5 steps listed"
 
 check "coach-page" 200 "$BASE/coach/$ID"
 check "learn-page" 200 "$BASE/skills/$ID"
+# The coach first paint is the loading state, never a premature "run Learn
+# first" empty state; the skill switcher label is present for typed entry.
+curl -s "$BASE/coach/$ID" -o /tmp/smoke-coach-page.html
+grep -q 'Loading skill' /tmp/smoke-coach-page.html || { echo "FAIL coach loading-first state missing"; exit 1; }
+echo "ok coach loading-first state"
+pass=$((pass + 1))
+grep -q 'Switch skill' /tmp/smoke-coach-page.html || { echo "FAIL coach skill switcher missing"; exit 1; }
+echo "ok coach skill switcher present"
+pass=$((pass + 1))
 # The coach view shows this reference image; like the clip, it must serve for
 # a skill learned after the server booted.
 check "coach-reference-serves" 200 "$BASE/skills/$ID/references/step-1.png"

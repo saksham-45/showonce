@@ -7,14 +7,19 @@ import type { SkillGraph } from "@/lib/skillgraph";
 export default function SkillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [graph, setGraph] = useState<SkillGraph | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [earned, setEarned] = useState<string[]>([]);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/skills/${id}`);
-    if (res.ok) {
-      setGraph((await res.json()) as SkillGraph);
+    try {
+      const res = await fetch(`/api/skills/${id}`);
+      if (res.ok) {
+        setGraph((await res.json()) as SkillGraph);
+      }
+    } finally {
+      setLoaded(true);
     }
   }, [id]);
 
@@ -54,7 +59,7 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
         {graph ? graph.title : "Skill"}
       </h1>
       <p className="meta-line" style={{ marginBottom: 24 }}>
-        {graph ? `${graph.steps.length} steps · studied` : "Not studied yet"}
+        {!loaded ? "Loading skill…" : graph ? `${graph.steps.length} steps · studied` : "Not studied yet"}
       </p>
 
       <a className="coach-cta" href={`/coach/${id}`}>
@@ -72,9 +77,13 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
           </div>
           <div style={{ marginTop: 16 }}>
             <button onClick={run} disabled={running} className="btn btn-primary">
-              {running ? "Learning..." : graph ? "Re-run Learn pipeline" : "Run Learn pipeline"}
+              {running ? "Learning…" : graph ? "Re-run Learn pipeline" : "Run Learn pipeline"}
             </button>
-            {error ? <p className="error">{error}</p> : null}
+            {error ? (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            ) : null}
             {earned.length > 0 ? (
               <p style={{ color: "var(--good)" }}>
                 Badge earned: {earned.map((bid) => BADGES.find((b) => b.id === bid)?.name ?? bid).join(", ")}.
@@ -85,7 +94,9 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
         </div>
 
         <div>
-          {graph ? (
+          {!loaded ? (
+            <p className="lede">Loading skill…</p>
+          ) : graph ? (
             <ol className="step-rail">
               {graph.steps.map((step, i) => (
                 <li key={step.id} className="step">
@@ -97,7 +108,12 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
                   <div className="step-figures">
                     <figure>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/skills/${id}/${step.keyframe}`} alt={`Keyframe for ${step.id}`} />
+                      <img
+                        src={`/skills/${id}/${step.keyframe}`}
+                        alt={`Keyframe for ${step.id}`}
+                        loading="lazy"
+                        decoding="async"
+                      />
                       <figcaption>Keyframe</figcaption>
                     </figure>
                     <figure>
@@ -105,6 +121,8 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
                       <img
                         src={`/skills/${id}/${step.referenceImage}`}
                         alt={`Corrective reference for ${step.id}`}
+                        loading="lazy"
+                        decoding="async"
                       />
                       <figcaption>Corrective reference</figcaption>
                     </figure>

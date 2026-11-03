@@ -13,6 +13,7 @@ interface SkillEntry {
 export default function HomePage() {
   const router = useRouter();
   const [skills, setSkills] = useState<SkillEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,7 +23,8 @@ export default function HomePage() {
     fetch("/api/skills")
       .then((res) => res.json())
       .then((body) => setSkills(body.skills ?? []))
-      .catch(() => setSkills([]));
+      .catch(() => setSkills([]))
+      .finally(() => setLoading(false));
   }, []);
 
   async function upload(event: React.FormEvent) {
@@ -89,9 +91,13 @@ export default function HomePage() {
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>
-            {error ? <p className="error">{error}</p> : null}
+            {error ? (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            ) : null}
             <button type="submit" disabled={busy} className="btn btn-primary">
-              {busy ? "Uploading..." : "Upload clip"}
+              {busy ? "Uploading…" : "Upload clip"}
             </button>
           </form>
           <div style={{ marginTop: 24 }}>
@@ -104,7 +110,9 @@ export default function HomePage() {
         <h2 className="display" style={{ fontSize: 30, marginBottom: 16 }}>
           Sessions on record
         </h2>
-        {skills.length === 0 ? (
+        {loading ? (
+          <p className="lede">Loading sessions…</p>
+        ) : skills.length === 0 ? (
           <p className="lede">No skills yet. Upload a clip above.</p>
         ) : (
           <div className="card">

@@ -110,6 +110,32 @@ the profile keeps your best per skill and averages toward Master's Mark. The
 [Library](/skills) and [Profile](/profile) pages read the API plus your local record —
 nothing is mocked.
 
+## Interface polish
+
+The Meta-blue world, real-time coach behavior, reward system, and generic
+pipeline are fixed points; this section records the feel conventions added
+on top of them so later edits stay consistent.
+
+Feel system (`app/globals.css`): nested radii step down (16 → 12 → 8) so
+cards, controls, and in-card images stay concentric; live numbers and state
+labels use tabular numerals; buttons press to 0.96 and every transition
+names explicit properties (never `transition: all`) so mid-gesture
+interruptions stay smooth; step rails and badge shelves stagger in at
+~80 ms per chunk with a soft 14 px rise, and `prefers-reduced-motion`
+disables all of it; interactive targets clear 40 px (44 px for buttons and
+finder rows); headings balance-wrap while body copy pretty-wraps.
+
+Loading-first states: home, library, skill, and profile each render a
+loading line before their listing resolves, so a slow fetch never flashes
+a false empty state; errors announce through `role="alert"`, retry and
+finder notes through `role="status"`, and the coach phase line through a
+polite live region. Landmarks: a skip link, a current-section nav mark
+(`SiteNav`), a labeled camera preview, and an `aria-current="step"`
+checklist item. Below-fold skill imagery lazy-loads with async decoding.
+Responsive: session rows wrap, the tier rail scrolls horizontally, the
+profile name form stacks, and the oversized step numeral shrinks — all at
+the existing 640 px / 480 px breakpoints.
+
 ## Verify it
 
 ```sh

@@ -352,7 +352,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
           <div className="coach-grid">
             <div>
               <div className="viewfinder">
-                <video ref={videoRef} muted playsInline />
+                <video ref={videoRef} muted playsInline aria-label="Live camera preview" />
                 <span className="corner corner-tl" aria-hidden="true" />
                 <span className="corner corner-tr" aria-hidden="true" />
                 <span className="corner corner-bl" aria-hidden="true" />
@@ -375,15 +375,27 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
                   {connLabel}
                 </span>
               </div>
-              <p style={{ color: "var(--muted)", fontSize: 15, minHeight: 24 }}>
+              <p
+                style={{ color: "var(--muted)", fontSize: 15, minHeight: 24 }}
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 {coaching
                   ? phase
                     ? `${PHASE_LABELS[phase] ?? phase}…`
                     : "Watching — a frame is judged every few seconds."
                   : "Press start to turn on the camera."}
               </p>
-              {retryNote && conn === "retrying" ? <p className="error">{retryNote}</p> : null}
-              {cameraError ? <p className="error">{cameraError}</p> : null}
+              {retryNote && conn === "retrying" ? (
+                <p className="error" role="status">
+                  {retryNote}
+                </p>
+              ) : null}
+              {cameraError ? (
+                <p className="error" role="alert">
+                  {cameraError}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -404,7 +416,8 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
                   <img
                     src={`/skills/${id}/${step.referenceImage}`}
                     alt={`Reference pose for step ${current + 1}`}
-                    style={{ width: "100%", borderRadius: "var(--radius)", border: "1px solid var(--line)" }}
+                    decoding="async"
+                    style={{ width: "100%", borderRadius: "var(--radius-sm)", border: "1px solid var(--line)" }}
                   />
                   <p className="mistakes">Watch out for: {step.mistakes.join("; ") || "nothing listed"}</p>
                   <div className="verdict-feed" aria-live="polite">
@@ -433,6 +446,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
                 return (
                   <li
                     key={candidate.id}
+                    aria-current={isCurrent ? "step" : undefined}
                     style={{
                       fontWeight: isCurrent ? 700 : 400,
                       color: done ? "var(--good)" : "var(--paper)",
