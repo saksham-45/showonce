@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "ShowOnce Learn",
-  description: "Study a 60-second expert clip into a step-by-step skill graph.",
+  title: "ShowOnce",
+  description: "Learn a physical skill from one expert clip, then get coached through it live.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
