@@ -27,7 +27,7 @@ export async function runLearnPipeline(skillId: string, title: string): Promise<
 
   let provider: LearnProvider;
   if (config.provider === "stub") {
-    provider = new StubProvider();
+    provider = new StubProvider(config.stubSteps);
   } else {
     if (!config.apiKey) {
       throw new Error(

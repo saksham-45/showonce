@@ -202,42 +202,33 @@ export class MetaProvider implements LearnProvider {
 }
 
 // ---------------------------------------------------------------------------
-// Stub provider: deterministic stand-in describing the placeholder clip
-// (a 60s five-phase paper-airplane fold), used only for pipeline proof.
+// Stub provider: deterministic skill-agnostic stand-in, used only for
+// pipeline proof when no key is reachable. It splits whatever clip arrives
+// into the configured number of timed phases (SHOWNCE_STEPS, default 5) and
+// describes each phase by its observed time range — no skill-specific
+// branching anywhere: the same path serves a paper airplane, a dance move,
+// or a repair task. The Meta path replaces these time-based drafts with
+// model-inferred steps for the real skill.
 // ---------------------------------------------------------------------------
 
-const STUB_STEPS: { id: string; instruction: string; checkpoint: string; mistakes: string[] }[] = [
-  {
-    id: "step-1",
-    instruction: "Crease the sheet in half lengthwise, then unfold it flat.",
-    checkpoint: "A single straight center crease runs top to bottom.",
-    mistakes: ["Crease drifts off-center", "Paper shifts mid-fold"],
-  },
-  {
-    id: "step-2",
-    instruction: "Fold the top two corners into the center crease.",
-    checkpoint: "Both corner edges meet exactly on the center line.",
-    mistakes: ["Corners overlap past the line", "Uneven left and right folds"],
-  },
-  {
-    id: "step-3",
-    instruction: "Fold the new slanted edges into the center again.",
-    checkpoint: "A sharp narrow nose forms with no gaps.",
-    mistakes: ["Loose second fold blunts the nose", "Paper buckles at the tip"],
-  },
-  {
-    id: "step-4",
-    instruction: "Fold the plane in half away from you along the center.",
-    checkpoint: "All layered folds sit on the outside.",
-    mistakes: ["Folding toward you hides the layers", "Misaligned halves twist the body"],
-  },
-  {
-    id: "step-5",
-    instruction: "Fold each wing down to meet the belly edge.",
-    checkpoint: "Both wings are equal width with flat crisp edges.",
-    mistakes: ["One wing wider than the other", "Wings angled instead of level"],
-  },
+// Skill-agnostic coaching mistakes: true of learning any physical movement.
+const GENERIC_MISTAKES = [
+  "Rushing the transition into this phase",
+  "Holding your breath instead of moving steadily",
+  "Mirroring the wrong side",
 ];
+
+function phaseBounds(index: number, count: number, durationSeconds: number): { start: number; end: number } {
+  const start = (durationSeconds * index) / count;
+  const end = (durationSeconds * (index + 1)) / count;
+  return { start, end };
+}
+
+function clock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -287,35 +278,40 @@ function solidPng(width: number, height: number, r: number, g: number, b: number
 }
 
 export class StubProvider implements LearnProvider {
+  constructor(private stepCount = 5) {}
+
   async segmentFrames(frames: SampledFrame[]): Promise<FrameSegmentation[]> {
     return frames.map((frame, i) => ({
       frame: frame.file,
       regions: [
         { label: "hands", box: [0.3, 0.4, 0.4, 0.3], score: 0.9 },
-        { label: "paper", box: [0.2 + (i % 5) * 0.05, 0.3, 0.5, 0.4], score: 0.85 },
+        { label: "subject", box: [0.2 + ((i % this.stepCount) / this.stepCount) * 0.3, 0.3, 0.5, 0.4], score: 0.85 },
       ],
     }));
   }
 
   async transcribe(): Promise<Transcript> {
-    return {
-      segments: STUB_STEPS.map((step, i) => ({
-        startSeconds: i * 12,
-        endSeconds: (i + 1) * 12,
-        text: `Phase ${i + 1}: ${step.instruction}`,
-      })),
-    };
+    // The stub has no model, so it cannot know what was said; the pipeline
+    // tolerates an empty transcript by design and fuses from vision alone.
+    return { segments: [] };
   }
 
   async fuse(input: FuseInput): Promise<{ title: string; steps: StepDraft[] }> {
-    const per = Math.max(1, Math.floor(input.frames.length / STUB_STEPS.length));
-    return {
-      title: input.title || "Fold a paper airplane",
-      steps: STUB_STEPS.map((step, i) => ({
-        ...step,
+    const count = Math.max(1, this.stepCount);
+    const duration = Number.isFinite(input.durationSeconds) && input.durationSeconds > 0 ? input.durationSeconds : count;
+    const per = Math.max(1, Math.floor(input.frames.length / count));
+    const steps: StepDraft[] = [];
+    for (let i = 0; i < count; i++) {
+      const { start, end } = phaseBounds(i, count, duration);
+      steps.push({
+        id: `step-${i + 1}`,
+        instruction: `Phase ${i + 1}: repeat the movement shown between ${clock(start)} and ${clock(end)}.`,
+        checkpoint: `Match the pose held around ${clock((start + end) / 2)} into the clip.`,
         keyframe: input.frames[Math.min(input.frames.length - 1, i * per)].file,
-      })),
-    };
+        mistakes: [...GENERIC_MISTAKES],
+      });
+    }
+    return { title: input.title || "Untitled skill", steps };
   }
 
   async referenceImage(step: StepDraft): Promise<Buffer> {
@@ -326,7 +322,8 @@ export class StubProvider implements LearnProvider {
       [186, 143, 58],
       [130, 96, 168],
     ];
-    const [r, g, b] = palette[STUB_STEPS.findIndex((s) => s.id === step.id) % palette.length] ?? [120, 120, 120];
+    const index = Math.max(0, parseInt(step.id.replace("step-", ""), 10) - 1 || 0);
+    const [r, g, b] = palette[index % palette.length] ?? [120, 120, 120];
     return solidPng(640, 360, r, g, b, step.id);
   }
 }

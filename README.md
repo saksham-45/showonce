@@ -49,7 +49,10 @@ no code change.
 
 ## How it works
 
-Learn pipeline (`lib/pipeline.ts`), five stages for one uploaded clip:
+Learn pipeline (`lib/pipeline.ts`), five stages for one uploaded clip. Nothing in the
+pipeline, coach, or UI branches on the skill: the graph schema is generic, the stub
+stand-in splits any clip into configured timed phases, and the Meta path lets the model
+infer steps for whatever the clip shows.
 
 1. Upload stores the clip with a skill id (`POST /api/skills`, 200 MB cap, video-only).
 2. `lib/extract.ts` samples frames at ~1 fps and the mono 16 kHz audio track via ffmpeg.
@@ -89,6 +92,7 @@ airplane graph, pass-on-visible-frame coaching, and the badge.
 |---|---|---|
 | `META_API_KEY` | — (required for `meta`) | Bearer [REDACTED] Meta Model API, also read from `.env.local` |
 | `SHOWNCE_PROVIDER` | `meta` | `meta` for live models, `stub` for deterministic local proof |
+| `SHOWNCE_STEPS` | `5` | Phases the stub stand-in splits any clip into (1–12; the Meta path lets the model decide) |
 | `SHOWNCE_CLIP` | — | Expert clip path; used by the smoke scripts when set |
 | `SHOWNCE_SMOKE_CLIP` | — | Clip file for `scripts/smoke-*.sh` (falls back to `SHOWNCE_CLIP`) |
 | `SHOWNCE_DATA_DIR` | `public/skills` | Per-skill storage root (proof runs point it at a temp dir) |
@@ -108,6 +112,11 @@ SHOWNCE_SMOKE_CLIP=path/to/clip.mp4 sh scripts/smoke-coach.sh http://localhost:3
 references serve for a skill learned after boot) plus upload and pipeline edge cases.
 `smoke-coach.sh` proves correct/nudge/wrong verdicts, the four error cases, the NDJSON
 stream phases, and all 5 steps advancing — the same progression that lights the badge.
+`smoke-generalize.sh` learns two distinct clips plus a micro-clip through the same
+unmodified path (asserting only the generic graph contract) and proves a corrupt clip
+fails gracefully with a clear 400. Distinct fixtures come from
+`scripts/make-placeholder-clip.sh` (`PHASES`, `PHASE_SECS`, `HUE_BASE`, `FREQ_BASE` tune
+phases, length, look, and sound).
 
 Status: Learn plus real-time Coach run end to end on the stub providers in production
 builds; the live one-skill Meta proof runs when `META_API_KEY` is reachable.

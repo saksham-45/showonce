@@ -15,11 +15,21 @@ export interface LearnConfig {
   apiKey: string | null;
   // Frames sampled per second during extraction.
   framesPerSecond: number;
+  // How many phases the stub stand-in splits a clip into. The Meta path lets
+  // the model decide the step count; the stub needs a configured default so
+  // clips of any length and any skill still fuse to a valid graph.
+  stubSteps: number;
 }
 
 function providerFromEnv(value: string | undefined): "meta" | "stub" {
   if (value === "stub") return "stub";
   return "meta";
+}
+
+function stubStepsFromEnv(value: string | undefined): number {
+  const parsed = Number(value ?? "");
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 12) return 5;
+  return parsed;
 }
 
 export function loadConfig(): LearnConfig {
@@ -29,5 +39,6 @@ export function loadConfig(): LearnConfig {
     apiBase: process.env.META_API_BASE ?? "https://api.meta.ai/v1",
     apiKey: process.env.META_API_KEY ?? null,
     framesPerSecond: 1,
+    stubSteps: stubStepsFromEnv(process.env.SHOWNCE_STEPS),
   };
 }
