@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { compareSkillFrame } from "@/lib/coach";
+import { compareSkillFrame, compareSkillFramePhased } from "@/lib/coach";
 import { isSkillGraph } from "@/lib/skillgraph";
 import { skillDir } from "@/lib/store";
 
@@ -9,6 +9,14 @@ import { skillDir } from "@/lib/store";
 // Body: { stepId: string, frame: string } where frame is a data URL
 // (data:image/jpeg;base64,...) or bare base64. Returns
 // { verdict: correct|nudge|wrong, correction: string, advance: boolean }.
+//
+// Streaming variant (Next.js Route Handler streaming: a Response carrying a
+// ReadableStream, per the Route Handlers streaming docs): send
+// `Accept: application/x-ndjson` and the same body, and the route replies
+// with newline-delimited progress events —
+// {"phase":"received"} → {"phase":"segmenting"} → {"phase":"judging"} →
+// {"verdict":...,"correction":...,"advance":...,"via":"meta"|"stub"} —
+// so the live UI can render connection state instead of a dead wait.
 
 // A still every 3 seconds should be kilobytes; refuse multi-megabyte bodies
 // before base64-decoding them.
@@ -64,12 +72,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     referenceBytes = null;
   }
 
-  const result = await compareSkillFrame({
+  const input = {
     step,
     frameBytes: frameToBytes(body.frame),
     referenceBytes,
     apiBase: process.env.META_API_BASE ?? "https://api.meta.ai/v1",
     apiKey: process.env.META_API_KEY ?? null,
-  });
+  };
+
+  if (request.headers.get("accept")?.includes("application/x-ndjson")) {
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (event: unknown) => {
+          controller.enqueue(new TextEncoder().encode(`${JSON.stringify(event)}\n`));
+        };
+        send({ phase: "received", stepId: step.id });
+        const startedAt = Date.now();
+        try {
+          const result = await compareSkillFramePhased(input, (phase) => send({ phase, stepId: step.id }));
+          send({ ...result, stepId: step.id, latencyMs: Date.now() - startedAt });
+        } catch {
+          // Never leave the stream hanging: a verdict-shaped error event
+          // lets the client hold the step and retry on its backoff.
+          send({ verdict: "wrong", correction: step.checkpoint, advance: false, via: "stub", stepId: step.id });
+        }
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: { "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" },
+    });
+  }
+
+  const result = await compareSkillFrame(input);
   return NextResponse.json(result);
 }

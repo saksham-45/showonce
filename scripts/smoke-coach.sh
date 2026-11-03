@@ -7,9 +7,11 @@
 set -eu
 
 BASE="${1:-http://localhost:3101}"
-CLIP="${SHOWNCE_SMOKE_CLIP:-}"
+# SHOWNCE_CLIP (the config-only expert-clip swap) doubles as the proof clip
+# when no dedicated smoke clip is set.
+CLIP="${SHOWNCE_SMOKE_CLIP:-${SHOWNCE_CLIP:-}}"
 if [ -z "$CLIP" ]; then
-  echo "set SHOWNCE_SMOKE_CLIP to a short clip file" >&2
+  echo "set SHOWNCE_SMOKE_CLIP (or SHOWNCE_CLIP) to a short clip file" >&2
   exit 2
 fi
 
@@ -68,6 +70,16 @@ check "compare-wrong" 200 -X POST "$BASE/api/skills/$ID/coach" -H 'Content-Type:
 grep -q '"verdict":"wrong"' /tmp/smoke-coach-body || { echo "FAIL wrong verdict missing"; exit 1; }
 grep -q '"advance":false' /tmp/smoke-coach-body || { echo "FAIL wrong hold missing"; exit 1; }
 echo "ok wrong verdict holds"
+pass=$((pass + 1))
+
+# Streaming variant: the same compare over NDJSON reports phases before the
+# final verdict, which is what keeps the live UI from ever looking stuck.
+printf '{"stepId":"%s","frame":"data:image/jpeg;base64,%s"}' "step-1" "$FRAME" > /tmp/smoke-coach-frame.json
+check "compare-stream" 200 -X POST "$BASE/api/skills/$ID/coach" -H 'Content-Type: application/json' -H 'Accept: application/x-ndjson' -d @/tmp/smoke-coach-frame.json
+grep -q '"phase":"received"' /tmp/smoke-coach-body || { echo "FAIL stream received phase missing"; exit 1; }
+grep -q '"verdict":"correct"' /tmp/smoke-coach-body || { echo "FAIL stream verdict missing"; exit 1; }
+grep -q '"via":"stub"' /tmp/smoke-coach-body || { echo "FAIL stream via missing"; exit 1; }
+echo "ok stream phases plus stub verdict"
 pass=$((pass + 1))
 
 check "unknown-skill-rejected" 404 -X POST "$BASE/api/skills/doesnotexist/coach" -H 'Content-Type: application/json' -d '{"stepId":"step-1","frame":"aGk="}'

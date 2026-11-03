@@ -1,4 +1,14 @@
 import type { Metadata } from "next";
+import { Anton, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import "./globals.css";
+
+// Type pairing (each family has a job, never a single identity):
+// Anton — condensed poster display for headlines and step numerals.
+// Newsreader — refined serif for reading: instructions, corrections.
+// IBM Plex Mono — data labels: timings, statuses, kickers.
+const display = Anton({ subsets: ["latin"], weight: "400", variable: "--font-display" });
+const body = Newsreader({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-body" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "ShowOnce",
@@ -7,17 +17,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body
-        style={{
-          fontFamily: "-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif",
-          margin: 0,
-          color: "#1a1a1a",
-          background: "#fff",
-          lineHeight: 1.5,
-        }}
-      >
-        <main style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px 64px" }}>{children}</main>
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+      <body>
+        <main className="site">{children}</main>
       </body>
     </html>
   );
