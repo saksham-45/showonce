@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { BADGES, loadProfile, recordLearn, saveProfile } from "@/lib/progress";
 import type { SkillGraph } from "@/lib/skillgraph";
 
 export default function SkillPage({ params }: { params: Promise<{ id: string }> }) {
@@ -8,6 +9,7 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
   const [graph, setGraph] = useState<SkillGraph | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [earned, setEarned] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/skills/${id}`);
@@ -28,6 +30,12 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
       const body = (await res.json()) as SkillGraph & { error?: string };
       if (!res.ok) throw new Error(body.error ?? "Pipeline failed.");
       setGraph(body);
+      // Real activity, recorded where it happens: a finished pipeline run
+      // is what earns Learn points and badges.
+      const profile = loadProfile();
+      const event = recordLearn(profile, id, body.title);
+      saveProfile(profile);
+      setEarned(event.earned);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pipeline failed.");
     } finally {
@@ -37,22 +45,17 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <>
-      <header className="topbar">
-        <a className="wordmark" href="/">
-          SHOW<b>ONCE</b>
-        </a>
-        <span className="provider-note">Learn session</span>
-      </header>
-
       <p className="crumbs">
         <a href="/">All skills</a>
         {" · "}
         <a href={`/coach/${id}`}>Coach view</a>
       </p>
-      <p className="kicker">{graph ? `${graph.steps.length} steps · studied` : "Not studied yet"}</p>
-      <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)", marginBottom: 24 }}>
+      <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)" }}>
         {graph ? graph.title : "Skill"}
       </h1>
+      <p className="meta-line" style={{ marginBottom: 24 }}>
+        {graph ? `${graph.steps.length} steps · studied` : "Not studied yet"}
+      </p>
 
       <a className="coach-cta" href={`/coach/${id}`}>
         <span>
@@ -72,6 +75,12 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
               {running ? "Learning..." : graph ? "Re-run Learn pipeline" : "Run Learn pipeline"}
             </button>
             {error ? <p className="error">{error}</p> : null}
+            {earned.length > 0 ? (
+              <p style={{ color: "var(--good)" }}>
+                Badge earned: {earned.map((bid) => BADGES.find((b) => b.id === bid)?.name ?? bid).join(", ")}.
+                See it on your <a href="/profile">profile</a>.
+              </p>
+            ) : null}
           </div>
         </div>
 

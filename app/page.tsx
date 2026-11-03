@@ -50,16 +50,8 @@ export default function HomePage() {
 
   return (
     <>
-      <header className="topbar">
-        <Link className="wordmark" href="/">
-          SHOW<b>ONCE</b>
-        </Link>
-        <span className="provider-note">Meta Model API · indie track</span>
-      </header>
-
       <section className="hero">
         <div>
-          <p className="kicker">One video in · a live coach out</p>
           <h1 className="display hero-title">
             Show it
             <br />
@@ -70,6 +62,7 @@ export default function HomePage() {
             steps, then watches you back over the camera with spoken corrections until every step
             checks off.
           </p>
+          <p className="meta-line">Meta Model API · indie track · one video in, a live coach out</p>
         </div>
 
         <div className="card hero-card">
@@ -108,7 +101,9 @@ export default function HomePage() {
       </section>
 
       <section>
-        <p className="kicker">Sessions on record</p>
+        <h2 className="display" style={{ fontSize: 30, marginBottom: 16 }}>
+          Sessions on record
+        </h2>
         {skills.length === 0 ? (
           <p className="lede">No skills yet. Upload a clip above.</p>
         ) : (

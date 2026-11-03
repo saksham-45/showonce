@@ -1,26 +1,29 @@
-/* ShowOnce design system — "night training hall".
-   One dominant ink surface, chalk text, a single signal accent, hard offset
-   shadows instead of glows, and exactly one orchestrated milestone moment
-   (the completion badge). Everything else changes state instantly. */
+/* ShowOnce design system — "mission control".
+   Blue-forward Meta palette: abyss-navy surfaces, ice-blue type, one signal
+   blue with a deep-blue shadow. Hard edges, real hierarchy, and exactly one
+   orchestrated milestone moment (the completion badge). */
 
 :root {
-  --ink: #14110b;
-  --ink-2: #1d1912;
-  --ink-3: #26211a;
-  --paper: #f2ecdd;
-  --muted: #b7ad99;
-  --faint: #8a8172;
-  --line: rgba(242, 236, 221, 0.16);
-  --accent: #ff5a1f;
-  --accent-deep: #c93f0e;
-  --accent-ink: #160b04;
-  --good: #5fce7d;
+  --ink: #050c18;
+  --ink-2: #0a1526;
+  --ink-3: #102138;
+  --paper: #eaf2ff;
+  --muted: #9fb6d4;
+  --faint: #63789b;
+  --line: rgba(234, 242, 255, 0.16);
+  --accent: #3395ff;
+  --accent-hi: #6db4ff;
+  --accent-deep: #0064e0;
+  --accent-ink: #04101f;
+  --good: #3ecf8e;
   --warn: #ffb224;
-  --bad: #ff7a7a;
-  --radius: 10px;
+  --bad: #ff8a8a;
+  --gold: #e8b93e;
+  --radius: 12px;
   --radius-lg: 16px;
-  --shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
-  --shadow-accent: 6px 6px 0 var(--accent-deep);
+  /* One depth system: offset plus blur. Borders separate, shadows elevate. */
+  --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  --shadow-accent: 0 14px 34px rgba(0, 100, 224, 0.35);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;
@@ -41,25 +44,13 @@ html {
 body {
   margin: 0;
   color: var(--paper);
-  background:
-    radial-gradient(1200px 500px at 85% -10%, rgba(255, 90, 31, 0.09), transparent 60%),
-    radial-gradient(900px 600px at -10% 110%, rgba(242, 236, 221, 0.05), transparent 55%),
-    var(--ink);
+  /* Flat mission-control surface. Depth comes from borders and the one
+     shadow system, not background effects. */
+  background: var(--ink);
   font-family: var(--font-body), Georgia, serif;
   font-size: 17px;
   line-height: 1.55;
   min-height: 100vh;
-}
-
-/* Paper grain: inline SVG turbulence at whisper opacity — atmosphere
-   without image assets or glow. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
 }
 
 .site {
@@ -76,7 +67,7 @@ a {
 }
 
 a:hover {
-  color: var(--accent);
+  color: var(--accent-hi);
 }
 
 :focus-visible {
@@ -84,7 +75,7 @@ a:hover {
   outline-offset: 3px;
 }
 
-/* Top bar: mono wordmark left, provider status right. */
+/* Top bar: wordmark left, section nav right. */
 .topbar {
   display: flex;
   align-items: baseline;
@@ -93,6 +84,7 @@ a:hover {
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--line);
   margin-bottom: var(--space-5);
+  flex-wrap: wrap;
 }
 
 .wordmark {
@@ -112,6 +104,25 @@ a:hover {
   font-weight: 400;
 }
 
+.sitenav {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sitenav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.sitenav a:hover,
+.sitenav a[aria-current="page"] {
+  color: var(--accent-hi);
+}
+
 .provider-note {
   font-family: var(--font-mono), monospace;
   font-size: 12px;
@@ -120,13 +131,15 @@ a:hover {
   text-transform: uppercase;
 }
 
-.kicker {
+/* Meta lines sit under headings as data, never as eyebrow kickers above
+   them — the heading carries its own weight. */
+.meta-line {
   font-family: var(--font-mono), monospace;
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
-  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  margin: var(--space-2) 0 0;
 }
 
 .display {
@@ -144,12 +157,13 @@ a:hover {
   max-width: 34ch;
 }
 
-/* Buttons: one loud primary, one quiet ghost. No lift-on-hover. */
+/* Buttons: one loud Meta-blue primary, one quiet ghost. Labels are set in
+   the body serif — mono is reserved for data and state, not controls. */
 .btn {
-  font-family: var(--font-mono), monospace;
-  font-size: 14px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-body), Georgia, serif;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.02em;
   padding: 12px 20px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
@@ -172,7 +186,7 @@ a:hover {
 }
 
 .btn-primary:hover {
-  background: #ff6c38;
+  background: var(--accent-hi);
   color: var(--accent-ink);
 }
 
@@ -180,22 +194,22 @@ a:hover {
   margin-left: var(--space-2);
 }
 
-/* Cards: flat ink-2 slabs, 1px chalk line, one hard shadow. */
+/* Cards: flat navy slabs with a 1px ice line. Elevation is declared once —
+   the shadow system is reserved for the moments that float (hero card,
+   coach CTA, badge, viewfinder). */
 .card {
   background: var(--ink-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
   padding: var(--space-4);
 }
 
 .field label {
   display: block;
-  font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-family: var(--font-body), Georgia, serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--paper);
   margin-bottom: var(--space-2);
 }
 
@@ -216,6 +230,11 @@ a:hover {
   font-size: 14px;
 }
 
+.field input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 .error {
   color: var(--bad);
   font-size: 15px;
@@ -233,8 +252,7 @@ a:hover {
   color: var(--muted);
 }
 
-/* Home: asymmetric hero. The headline overlaps the session card on wide
-   screens; stacked with room to breathe on narrow ones. */
+/* Home: asymmetric hero. */
 .hero {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
@@ -244,7 +262,7 @@ a:hover {
 }
 
 .hero-title {
-  font-size: clamp(56px, 9vw, 118px);
+  font-size: clamp(56px, 9vw, 96px);
 }
 
 .hero-title .accent-line {
@@ -253,6 +271,7 @@ a:hover {
 
 .hero-card {
   margin-top: var(--space-6);
+  box-shadow: var(--shadow);
 }
 
 @media (min-width: 900px) {
@@ -284,7 +303,7 @@ a:hover {
 }
 
 .session-name a:hover {
-  color: var(--accent);
+  color: var(--accent-hi);
 }
 
 .session-meta {
@@ -297,10 +316,9 @@ a:hover {
 }
 
 .go-link {
-  font-family: var(--font-mono), monospace;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--font-body), Georgia, serif;
+  font-weight: 600;
+  font-size: 15px;
   white-space: nowrap;
 }
 
@@ -341,8 +359,7 @@ a:hover {
   margin: var(--space-2) 0 0;
 }
 
-/* Skill page: sticky clip left, numbered rail right. Big Anton numerals
-   overlap the step cards — the only overlap on this page. */
+/* Skill page: sticky clip left, numbered rail right. */
 .skill-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -467,7 +484,7 @@ a:hover {
 
 .coach-cta:hover {
   color: var(--accent-ink);
-  background: #ff6c38;
+  background: var(--accent-hi);
 }
 
 .coach-cta strong {
@@ -484,8 +501,7 @@ a:hover {
   display: block;
 }
 
-/* Coach: camera-forward. The viewfinder dominates; status, step, and
-   verdicts dock beside it on wide screens and stack below on phones. */
+/* Coach: camera-forward viewfinder. */
 .coach-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -551,8 +567,7 @@ a:hover {
   border-top: 0;
 }
 
-/* Connection status: one pill, four explicit states. The live dot pulses;
-   everything else is static text. */
+/* Connection status: one pill, explicit states. */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -595,7 +610,7 @@ a:hover {
 
 .status-fallback {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-hi);
 }
 
 .status-fallback .dot {
@@ -660,8 +675,7 @@ a:hover {
   color: var(--bad);
 }
 
-/* The one orchestrated moment: the completion badge reveal. A single
-   rise-and-settle, played once, never on scroll and never on loop. */
+/* The one orchestrated moment: the completion badge reveal. */
 .badge {
   text-align: center;
   padding: var(--space-6) var(--space-4);
@@ -691,6 +705,189 @@ a:hover {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Operate surfaces: profile, library, badge shelf. Stats read as a dense
+   definition list — label and value on one row — not metric cards. */
+.stat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.stat-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.stat-list li:first-child {
+  border-top: 0;
+}
+
+.stat-list .stat-value {
+  font-family: var(--font-display), sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--paper);
+}
+
+.stat-list .stat-label {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.tier-rail {
+  display: flex;
+  gap: 0;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tier-rail span {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 4px;
+  color: var(--faint);
+  border-left: 1px solid var(--line);
+}
+
+.tier-rail span:first-child {
+  border-left: 0;
+}
+
+.tier-rail span.hit {
+  background: var(--accent-deep);
+  color: #fff;
+}
+
+.tier-rail span.next {
+  color: var(--accent-hi);
+}
+
+/* Badge medallions: solid tier metal, ice ring when earned, dimmed locked. */
+.badge-shelf {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+@media (min-width: 700px) {
+  .badge-shelf {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.medallion {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.medallion .coin {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--space-2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display), sans-serif;
+  font-size: 26px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 3px solid var(--accent-hi);
+}
+
+.medallion.locked {
+  opacity: 0.55;
+}
+
+.medallion.locked .coin {
+  background: var(--ink-3);
+  border-color: var(--faint);
+  color: var(--faint);
+}
+
+.medallion.gold .coin {
+  background: var(--gold);
+  border-color: #ffe1a1;
+  color: #3a2a05;
+}
+
+.medallion h3 {
+  font-size: 17px;
+  margin: 0 0 var(--space-1);
+}
+
+.medallion p {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.medallion .bonus {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--accent-hi);
+  text-transform: uppercase;
+}
+
+/* Rating pips: five diamonds, filled to the skill's best rating. */
+.pips {
+  display: inline-flex;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.pips i {
+  width: 11px;
+  height: 11px;
+  transform: rotate(45deg);
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+}
+
+.pips i.on {
+  background: var(--accent);
+  border-color: var(--accent-hi);
+}
+
+.activity-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.activity-list li {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.activity-list li:first-child {
+  border-top: 0;
+}
+
+.activity-list b {
+  color: var(--paper);
+  font-weight: 600;
 }
 
 @media (max-width: 640px) {

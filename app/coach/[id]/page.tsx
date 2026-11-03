@@ -1,6 +1,15 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
+import {
+  BADGES,
+  loadProfile,
+  recordCompletion,
+  recordFriction,
+  recordStepPass,
+  saveProfile,
+  startSession,
+} from "@/lib/progress";
 import type { SkillGraph } from "@/lib/skillgraph";
 import SkillFinder from "../../components/SkillFinder";
 
@@ -83,6 +92,8 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
   const [phase, setPhase] = useState<string | null>(null);
   const [conn, setConn] = useState<ConnState>("idle");
   const [retryNote, setRetryNote] = useState<string | null>(null);
+  const [earned, setEarned] = useState<string[]>([]);
+  const recordedRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -131,9 +142,17 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
   const complete = graph !== null && graph.steps.length > 0 && current >= graph.steps.length;
 
   useEffect(() => {
-    if (complete && graph) {
+    if (complete && graph && !recordedRef.current) {
+      recordedRef.current = true;
+      // The full circuit is real activity: completions, ratings, and badges
+      // all derive from this one recorded event.
+      const profile = loadProfile();
+      const event = recordCompletion(profile, graph.skillId, graph.steps.length);
+      saveProfile(profile);
+      setEarned(event.earned);
       speak(`Skill complete. You finished ${graph.title}. Badge earned.`);
     }
+    if (!complete) recordedRef.current = false;
   }, [complete, graph]);
 
   // Capture loop: one still every few seconds, judged against current step.
@@ -194,7 +213,15 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         setRetryNote(null);
         setLastReply(reply);
         if (reply.correction) speak(reply.correction);
+        if (reply.verdict !== "correct") {
+          const profile = loadProfile();
+          recordFriction(profile, requestedId);
+          saveProfile(profile);
+        }
         if (reply.advance) {
+          const profile = loadProfile();
+          recordStepPass(profile, active.skillId, step.id);
+          saveProfile(profile);
           setDoneSteps((prev) => (prev.includes(step.id) ? prev : [...prev, step.id]));
           const next = currentRef.current + 1;
           setCurrent(next);
@@ -247,6 +274,9 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       retryCountRef.current = 0;
       backoffUntilRef.current = 0;
       setConn("live");
+      const profile = loadProfile();
+      startSession(profile, id);
+      saveProfile(profile);
       setCoaching(true);
     } catch (err) {
       setCameraError(
@@ -272,13 +302,6 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <>
-      <header className="topbar">
-        <a className="wordmark" href="/">
-          SHOW<b>ONCE</b>
-        </a>
-        <span className="provider-note">Live coach session</span>
-      </header>
-
       <p className="crumbs">
         <a href="/">All skills</a>
         {graph ? (
@@ -287,10 +310,12 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
           </>
         ) : null}
       </p>
-      <p className="kicker">Personal skill tutor · real-time</p>
-      <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)", marginBottom: 16 }}>
+      <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)" }}>
         {graph ? `Coach: ${graph.title}` : "Coach"}
       </h1>
+      <p className="meta-line" style={{ marginBottom: 16 }}>
+        Personal skill tutor · real-time
+      </p>
 
       <div style={{ marginBottom: 24, maxWidth: 460 }}>
         <SkillFinder coach />
@@ -307,13 +332,19 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         </p>
       ) : complete ? (
         <section className="badge" aria-live="polite">
-          <p className="kicker">Completion badge earned</p>
           <h2>Skill locked in</h2>
           <p style={{ margin: "0 0 8px" }}>
             You completed every step of <strong>{graph.title}</strong>.
           </p>
           <p style={{ margin: 0, color: "var(--muted)" }}>
             {graph.steps.length} of {graph.steps.length} checkpoints passed.
+            {earned.length > 0 ? (
+              <>
+                {" "}Badge earned:{" "}
+                {earned.map((bid) => BADGES.find((b) => b.id === bid)?.name ?? bid).join(", ")} —{" "}
+                <a href="/profile">view profile</a>.
+              </>
+            ) : null}
           </p>
         </section>
       ) : (
@@ -363,11 +394,11 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
               </div>
               {step ? (
                 <section className="card">
-                  <p className="kicker">
+                  <h2 style={{ fontSize: 22, margin: "0 0 4px" }}>{step.instruction}</h2>
+                  <p className="meta-line" style={{ margin: "0 0 8px" }}>
                     Step {current + 1} of {graph.steps.length}
                     {lastReply?.via ? ` · via ${lastReply.via === "meta" ? "Meta live" : "local stand-in"}` : ""}
                   </p>
-                  <h2 style={{ fontSize: 22, margin: "0 0 4px" }}>{step.instruction}</h2>
                   <p className="checkpoint">Checkpoint: {step.checkpoint}</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -392,7 +423,9 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           <section style={{ marginTop: 24 }}>
-            <p className="kicker">Checklist</p>
+            <h2 className="display" style={{ fontSize: 26, marginBottom: 12 }}>
+              Checklist
+            </h2>
             <ol style={{ paddingLeft: 20, margin: 0 }}>
               {graph.steps.map((candidate, index) => {
                 const done = doneSteps.includes(candidate.id);

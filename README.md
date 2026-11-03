@@ -98,6 +98,18 @@ airplane graph, pass-on-visible-frame coaching, and the badge.
 | `SHOWNCE_DATA_DIR` | `public/skills` | Per-skill storage root (proof runs point it at a temp dir) |
 | `META_API_BASE` | `https://api.meta.ai/v1` | Meta Model API base URL |
 
+## Rewards
+
+Points, tiers, badges, and ratings (`lib/progress.ts`) are earned only through real
+activity recorded where it happens: a finished Learn pipeline (+10), a passed checkpoint
+(+5, once per step), a full circuit (+25, clean bonus +15). Tiers run Rookie (0) →
+Driller (40) → Polished (120) → Master (250). Six badges — First Light, Full Circuit,
+Clean Run, Quick Study, Triple Threat, Master's Mark — carry point bonuses and show on
+your profile. Each finished skill rates 1–5 from friction (nudges/misses before passing);
+the profile keeps your best per skill and averages toward Master's Mark. The
+[Library](/skills) and [Profile](/profile) pages read the API plus your local record —
+nothing is mocked.
+
 ## Verify it
 
 ```sh
@@ -109,7 +121,8 @@ SHOWNCE_SMOKE_CLIP=path/to/clip.mp4 sh scripts/smoke-coach.sh http://localhost:3
 ```
 
 `smoke-learn.sh` proves the Learn end to end (5-step graph validates, clip/keyframes/
-references serve for a skill learned after boot) plus upload and pipeline edge cases.
+references serve for a skill learned after boot) plus upload and pipeline edge cases,
+and that the Library and Profile surfaces render.
 `smoke-coach.sh` proves correct/nudge/wrong verdicts, the four error cases, the NDJSON
 stream phases, and all 5 steps advancing — the same progression that lights the badge.
 `smoke-generalize.sh` learns two distinct clips plus a micro-clip through the same
