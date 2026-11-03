@@ -71,5 +71,7 @@ check "clip-serves" 200 "$BASE/skills/$ID/clip.mp4"
 check "keyframe-serves" 200 "$BASE/skills/$ID/keyframes/step-1.jpg"
 check "reference-serves" 200 "$BASE/skills/$ID/references/step-1.png"
 check "skill-page" 200 "$BASE/skills/$ID"
+check "library-page" 200 "$BASE/skills"
+check "profile-page" 200 "$BASE/profile"
 
 echo "smoke-learn: $pass checks passed (skill $ID)"

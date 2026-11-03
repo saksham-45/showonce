@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import SkillFinder from "./components/SkillFinder";
 
 interface SkillEntry {
   skillId: string;
@@ -49,57 +50,78 @@ export default function HomePage() {
 
   return (
     <>
-      <h1 style={{ fontSize: 32, marginBottom: 8 }}>ShowOnce Learn</h1>
-      <p style={{ marginTop: 0 }}>
-        Upload a 60-second expert clip. The pipeline studies it into a step-by-step skill graph.
-      </p>
+      <section className="hero">
+        <div>
+          <h1 className="display hero-title">
+            Show it
+            <br />
+            <span className="accent-line">once.</span>
+          </h1>
+          <p className="lede">
+            Record a 60-second clip of an expert doing a physical task. ShowOnce studies it into
+            steps, then watches you back over the camera with spoken corrections until every step
+            checks off.
+          </p>
+          <p className="meta-line">Meta Model API · indie track · one video in, a live coach out</p>
+        </div>
 
-      <section style={{ border: "1px solid #ddd", borderRadius: 8, padding: 16, marginTop: 24 }}>
-        <h2 style={{ fontSize: 20, marginTop: 0 }}>New skill</h2>
-        <form onSubmit={upload}>
-          <div style={{ marginBottom: 12 }}>
-            <label>
-              Skill title
-              <br />
+        <div className="card hero-card">
+          <h2 className="display" style={{ fontSize: 26, marginBottom: 16 }}>
+            New skill
+          </h2>
+          <form onSubmit={upload}>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label htmlFor="skill-title">Skill title</label>
               <input
+                id="skill-title"
+                type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Fold a paper airplane"
-                style={{ width: "100%", padding: 8, marginTop: 4 }}
               />
-            </label>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label>
-              Expert clip (short video, 60s target)
-              <br />
+            </div>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label htmlFor="skill-clip">Expert clip · short video, 60s target</label>
               <input
+                id="skill-clip"
                 type="file"
                 accept="video/*"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                style={{ marginTop: 4 }}
               />
-            </label>
+            </div>
+            {error ? <p className="error">{error}</p> : null}
+            <button type="submit" disabled={busy} className="btn btn-primary">
+              {busy ? "Uploading..." : "Upload clip"}
+            </button>
+          </form>
+          <div style={{ marginTop: 24 }}>
+            <SkillFinder />
           </div>
-          {error ? <p style={{ color: "#a00" }}>{error}</p> : null}
-          <button type="submit" disabled={busy} style={{ padding: "8px 16px" }}>
-            {busy ? "Uploading..." : "Upload clip"}
-          </button>
-        </form>
+        </div>
       </section>
 
-      <section style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: 20 }}>Skills</h2>
+      <section>
+        <h2 className="display" style={{ fontSize: 30, marginBottom: 16 }}>
+          Sessions on record
+        </h2>
         {skills.length === 0 ? (
-          <p>No skills yet. Upload a clip above.</p>
+          <p className="lede">No skills yet. Upload a clip above.</p>
         ) : (
-          <ul>
+          <div className="card">
             {skills.map((skill) => (
-              <li key={skill.skillId}>
-                <Link href={`/skills/${skill.skillId}`}>{skill.title}</Link>
-              </li>
+              <div className="session-row" key={skill.skillId}>
+                <div>
+                  <p className="session-name">
+                    <Link href={`/skills/${skill.skillId}`}>{skill.title}</Link>
+                  </p>
+                  <p className="session-meta">skill · {skill.skillId.slice(0, 8)}</p>
+                </div>
+                <Link className="go-link" href={`/coach/${skill.skillId}`}>
+                  Coach →
+                </Link>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </>

@@ -1,0 +1,926 @@
+/* ShowOnce design system — "mission control".
+   Blue-forward Meta palette: abyss-navy surfaces, ice-blue type, one signal
+   blue with a deep-blue shadow. Hard edges, real hierarchy, and exactly one
+   orchestrated milestone moment (the completion badge). */
+
+:root {
+  --ink: #050c18;
+  --ink-2: #0a1526;
+  --ink-3: #102138;
+  --paper: #eaf2ff;
+  --muted: #9fb6d4;
+  --faint: #63789b;
+  --line: rgba(234, 242, 255, 0.16);
+  --accent: #3395ff;
+  --accent-hi: #6db4ff;
+  --accent-deep: #0064e0;
+  --accent-ink: #04101f;
+  --good: #3ecf8e;
+  --warn: #ffb224;
+  --bad: #ff8a8a;
+  --gold: #e8b93e;
+  --radius: 12px;
+  --radius-lg: 16px;
+  /* One depth system: offset plus blur. Borders separate, shadows elevate. */
+  --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  --shadow-accent: 0 14px 34px rgba(0, 100, 224, 0.35);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 72px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--ink);
+}
+
+body {
+  margin: 0;
+  color: var(--paper);
+  /* Flat mission-control surface. Depth comes from borders and the one
+     shadow system, not background effects. */
+  background: var(--ink);
+  font-family: var(--font-body), Georgia, serif;
+  font-size: 17px;
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+.site {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-7);
+}
+
+a {
+  color: var(--paper);
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--accent-hi);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Top bar: wordmark left, section nav right. */
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.wordmark {
+  font-family: var(--font-display), sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: var(--paper);
+}
+
+.wordmark:hover {
+  color: var(--paper);
+}
+
+.wordmark b {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.sitenav {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sitenav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.sitenav a:hover,
+.sitenav a[aria-current="page"] {
+  color: var(--accent-hi);
+}
+
+.provider-note {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* Meta lines sit under headings as data, never as eyebrow kickers above
+   them — the heading carries its own weight. */
+.meta-line {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: var(--space-2) 0 0;
+}
+
+.display {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.lede {
+  font-size: 19px;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+/* Buttons: one loud Meta-blue primary, one quiet ghost. Labels are set in
+   the body serif — mono is reserved for data and state, not controls. */
+.btn {
+  font-family: var(--font-body), Georgia, serif;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--ink-2);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent-deep);
+  color: var(--accent-ink);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hi);
+  color: var(--accent-ink);
+}
+
+.btn + .btn {
+  margin-left: var(--space-2);
+}
+
+/* Cards: flat navy slabs with a 1px ice line. Elevation is declared once —
+   the shadow system is reserved for the moments that float (hero card,
+   coach CTA, badge, viewfinder). */
+.card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.field label {
+  display: block;
+  font-family: var(--font-body), Georgia, serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--paper);
+  margin-bottom: var(--space-2);
+}
+
+.field input[type="text"],
+.field input:not([type]) {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body), Georgia, serif;
+  font-size: 17px;
+}
+
+.field input[type="file"] {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.field input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.error {
+  color: var(--bad);
+  font-size: 15px;
+}
+
+.crumbs {
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 var(--space-3);
+}
+
+.crumbs a {
+  color: var(--muted);
+}
+
+/* Home: asymmetric hero. */
+.hero {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: var(--space-5);
+  align-items: start;
+  margin-bottom: var(--space-6);
+}
+
+.hero-title {
+  font-size: clamp(56px, 9vw, 96px);
+}
+
+.hero-title .accent-line {
+  color: var(--accent);
+}
+
+.hero-card {
+  margin-top: var(--space-6);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 900px) {
+  .hero-card {
+    margin-left: calc(-1 * var(--space-6));
+  }
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.session-row:first-of-type {
+  border-top: 0;
+}
+
+.session-name {
+  font-size: 18px;
+  margin: 0;
+}
+
+.session-name a {
+  text-decoration: none;
+}
+
+.session-name a:hover {
+  color: var(--accent-hi);
+}
+
+.session-meta {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  text-transform: uppercase;
+  margin: var(--space-1) 0 0;
+}
+
+.go-link {
+  font-family: var(--font-body), Georgia, serif;
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.finder-results {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.finder-results li {
+  border-top: 1px solid var(--line);
+}
+
+.finder-results li:first-child {
+  border-top: 0;
+}
+
+.finder-results a {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 10px 14px;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.finder-results a:hover {
+  background: var(--ink-3);
+  color: var(--paper);
+}
+
+.finder-empty {
+  color: var(--muted);
+  font-size: 15px;
+  margin: var(--space-2) 0 0;
+}
+
+/* Skill page: sticky clip left, numbered rail right. */
+.skill-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+}
+
+@media (min-width: 900px) {
+  .skill-grid {
+    grid-template-columns: 0.95fr 1.05fr;
+    align-items: start;
+  }
+}
+
+.clip-frame {
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-accent);
+  overflow: hidden;
+}
+
+.clip-frame video {
+  display: block;
+  width: 100%;
+  max-height: 440px;
+  background: #000;
+}
+
+.step-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  position: relative;
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--ink-2);
+  margin-bottom: var(--space-4);
+}
+
+.step-num {
+  position: absolute;
+  left: -22px;
+  top: -26px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 64px;
+  line-height: 1;
+  color: var(--ink);
+  -webkit-text-stroke: 2px var(--accent);
+  text-stroke: 2px var(--accent);
+}
+
+.step.done {
+  border-color: var(--good);
+}
+
+.step.done .step-num {
+  -webkit-text-stroke-color: var(--good);
+  text-stroke-color: var(--good);
+}
+
+.step h3 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 var(--space-1);
+}
+
+.checkpoint {
+  color: var(--muted);
+  margin: 0 0 var(--space-3);
+}
+
+.step-figures {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.step-figures figure {
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+.step-figures img {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.step-figures figcaption {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-top: var(--space-1);
+}
+
+.mistakes {
+  font-size: 15px;
+  color: var(--muted);
+  margin: var(--space-3) 0 0;
+}
+
+.coach-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-4);
+  box-shadow: var(--shadow);
+  margin: 0 0 var(--space-5);
+  text-decoration: none;
+}
+
+.coach-cta:hover {
+  color: var(--accent-ink);
+  background: var(--accent-hi);
+}
+
+.coach-cta strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 400;
+  display: block;
+}
+
+.coach-cta span {
+  font-size: 15px;
+  display: block;
+}
+
+/* Coach: camera-forward viewfinder. */
+.coach-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 900px) {
+  .coach-grid {
+    grid-template-columns: 1.25fr 0.75fr;
+    align-items: start;
+  }
+}
+
+.viewfinder {
+  position: relative;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.viewfinder video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #000;
+}
+
+.viewfinder .corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--accent);
+}
+
+.corner-tl {
+  top: 12px;
+  left: 12px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.corner-tr {
+  top: 12px;
+  right: 12px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+.corner-bl {
+  bottom: 12px;
+  left: 12px;
+  border-right: 0;
+  border-top: 0;
+}
+
+.corner-br {
+  bottom: 12px;
+  right: 12px;
+  border-left: 0;
+  border-top: 0;
+}
+
+/* Connection status: one pill, explicit states. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.status-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.status-live {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.status-live .dot {
+  background: var(--good);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.status-retry {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.status-retry .dot {
+  background: var(--warn);
+}
+
+.status-fallback {
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+
+.status-fallback .dot {
+  background: var(--accent);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Five-segment progress: one filled block per passed checkpoint. */
+.progress-segments {
+  display: flex;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.progress-segments i {
+  flex: 1;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+}
+
+.progress-segments i.hit {
+  background: var(--accent);
+  border-color: var(--accent-deep);
+}
+
+.verdict-feed {
+  min-height: 72px;
+}
+
+.verdict-feed .correction {
+  font-size: 20px;
+  margin: var(--space-2) 0 0;
+}
+
+.verdict-tag {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.verdict-correct {
+  color: var(--good);
+}
+
+.verdict-nudge {
+  color: var(--warn);
+}
+
+.verdict-wrong {
+  color: var(--bad);
+}
+
+/* The one orchestrated moment: the completion badge reveal. */
+.badge {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  border: 2px solid var(--good);
+  border-radius: var(--radius-lg);
+  background: var(--ink-2);
+  box-shadow: var(--shadow);
+  animation: badge-in 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+}
+
+.badge h2 {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 400;
+  font-size: clamp(40px, 7vw, 72px);
+  text-transform: uppercase;
+  line-height: 0.95;
+  margin: 0 0 var(--space-2);
+  color: var(--good);
+}
+
+@keyframes badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Operate surfaces: profile, library, badge shelf. Stats read as a dense
+   definition list — label and value on one row — not metric cards. */
+.stat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.stat-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.stat-list li:first-child {
+  border-top: 0;
+}
+
+.stat-list .stat-value {
+  font-family: var(--font-display), sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--paper);
+}
+
+.stat-list .stat-label {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.tier-rail {
+  display: flex;
+  gap: 0;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tier-rail span {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 4px;
+  color: var(--faint);
+  border-left: 1px solid var(--line);
+}
+
+.tier-rail span:first-child {
+  border-left: 0;
+}
+
+.tier-rail span.hit {
+  background: var(--accent-deep);
+  color: #fff;
+}
+
+.tier-rail span.next {
+  color: var(--accent-hi);
+}
+
+/* Badge medallions: solid tier metal, ice ring when earned, dimmed locked. */
+.badge-shelf {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+@media (min-width: 700px) {
+  .badge-shelf {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.medallion {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.medallion .coin {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--space-2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display), sans-serif;
+  font-size: 26px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 3px solid var(--accent-hi);
+}
+
+.medallion.locked {
+  opacity: 0.55;
+}
+
+.medallion.locked .coin {
+  background: var(--ink-3);
+  border-color: var(--faint);
+  color: var(--faint);
+}
+
+.medallion.gold .coin {
+  background: var(--gold);
+  border-color: #ffe1a1;
+  color: #3a2a05;
+}
+
+.medallion h3 {
+  font-size: 17px;
+  margin: 0 0 var(--space-1);
+}
+
+.medallion p {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.medallion .bonus {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--accent-hi);
+  text-transform: uppercase;
+}
+
+/* Rating pips: five diamonds, filled to the skill's best rating. */
+.pips {
+  display: inline-flex;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.pips i {
+  width: 11px;
+  height: 11px;
+  transform: rotate(45deg);
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+}
+
+.pips i.on {
+  background: var(--accent);
+  border-color: var(--accent-hi);
+}
+
+.activity-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.activity-list li {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.activity-list li:first-child {
+  border-top: 0;
+}
+
+.activity-list b {
+  color: var(--paper);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card {
+    margin-top: 0;
+  }
+
+  .coach-cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .site {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+}
+
+/* Reduced motion: the badge appears instantly, the live dot stays solid. */
+@media (prefers-reduced-motion: reduce) {
+  .badge {
+    animation: none;
+  }
+
+  .status-live .dot {
+    animation: none;
+  }
+
+  * {
+    transition: none !important;
+  }
+}

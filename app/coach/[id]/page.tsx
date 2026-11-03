@@ -1,7 +1,17 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
+import {
+  BADGES,
+  loadProfile,
+  recordCompletion,
+  recordFriction,
+  recordStepPass,
+  saveProfile,
+  startSession,
+} from "@/lib/progress";
 import type { SkillGraph } from "@/lib/skillgraph";
+import SkillFinder from "../../components/SkillFinder";
 
 type Verdict = "correct" | "nudge" | "wrong";
 
@@ -9,16 +19,66 @@ interface CoachReply {
   verdict: Verdict;
   correction: string;
   advance: boolean;
+  via?: "meta" | "stub";
 }
 
-// One still frame is judged every few seconds while coaching runs.
-const CAPTURE_INTERVAL_MS = 3000;
+// One still frame is judged every few seconds while coaching runs. Ticks
+// never overlap: a tick fires only when no compare is in flight, so a slow
+// model delays the next judgement instead of piling up blocked requests.
+const CAPTURE_INTERVAL_MS = 2500;
+// Backstop above the server-side model budgets (15s segment + 25s judge).
+const REQUEST_TIMEOUT_MS = 50_000;
+const MAX_BACKOFF_MS = 8000;
+
+type ConnState = "idle" | "live" | "retrying";
 
 function speak(text: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
+
+// Read the NDJSON coach stream event by event. Phases update the status
+// line; the final event carries the verdict handled like the JSON route.
+async function readCoachStream(
+  res: Response,
+  onPhase: (phase: string) => void,
+  signal: AbortSignal,
+): Promise<CoachReply> {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("Streaming is not supported here.");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (signal.aborted) {
+      reader.cancel().catch(() => {});
+      throw new DOMException("Compare aborted.", "AbortError");
+    }
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const event = JSON.parse(trimmed) as CoachReply & { phase?: string };
+      if (event.phase) {
+        onPhase(event.phase);
+      } else if (event.verdict) {
+        reader.cancel().catch(() => {});
+        return event;
+      }
+    }
+  }
+  throw new Error("Coach stream ended without a verdict.");
+}
+
+const PHASE_LABELS: Record<string, string> = {
+  received: "frame received",
+  segmenting: "segmenting hands and tools",
+  judging: "judging against the checkpoint",
+};
 
 export default function CoachPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -29,12 +89,19 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
   const [coaching, setCoaching] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastReply, setLastReply] = useState<CoachReply | null>(null);
-  const [checking, setChecking] = useState(false);
+  const [phase, setPhase] = useState<string | null>(null);
+  const [conn, setConn] = useState<ConnState>("idle");
+  const [retryNote, setRetryNote] = useState<string | null>(null);
+  const [earned, setEarned] = useState<string[]>([]);
+  const recordedRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const stallTicksRef = useRef(0);
+  const busyRef = useRef(false);
+  const backoffUntilRef = useRef(0);
+  const retryCountRef = useRef(0);
   const graphRef = useRef<SkillGraph | null>(null);
   const currentRef = useRef(0);
   graphRef.current = graph;
@@ -72,26 +139,36 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
     };
   }, []);
 
-  const complete =
-    graph !== null && graph.steps.length > 0 && current >= graph.steps.length;
+  const complete = graph !== null && graph.steps.length > 0 && current >= graph.steps.length;
 
   useEffect(() => {
-    if (complete && graph) {
+    if (complete && graph && !recordedRef.current) {
+      recordedRef.current = true;
+      // The full circuit is real activity: completions, ratings, and badges
+      // all derive from this one recorded event.
+      const profile = loadProfile();
+      const event = recordCompletion(profile, graph.skillId, graph.steps.length);
+      saveProfile(profile);
+      setEarned(event.earned);
       speak(`Skill complete. You finished ${graph.title}. Badge earned.`);
     }
+    if (!complete) recordedRef.current = false;
   }, [complete, graph]);
 
   // Capture loop: one still every few seconds, judged against current step.
   useEffect(() => {
     if (!coaching) return;
     async function captureOnce() {
+      // Never overlap compares and never fire inside a backoff window: the
+      // loop skips instead of blocking.
+      if (busyRef.current || Date.now() < backoffUntilRef.current) return;
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const active = graphRef.current;
       if (!video || !canvas || !active) return;
       if (video.readyState < 2 || video.videoWidth === 0) {
         // The camera is on but no picture is flowing; say so instead of
-        // watching silently. Three missed ticks is ~9 seconds.
+        // watching silently. Three missed ticks is ~8 seconds.
         stallTicksRef.current += 1;
         if (stallTicksRef.current === 3) {
           setCameraError("Camera is on but no picture is arriving. Check the lens cover and try another browser.");
@@ -108,36 +185,66 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       ctx.drawImage(video, 0, 0);
       const frame = canvas.toDataURL("image/jpeg", 0.8);
       const requestedId = step.id;
-      setChecking(true);
+      busyRef.current = true;
+      setPhase(null);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       try {
         const res = await fetch(`/api/skills/${active.skillId}/coach`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
           body: JSON.stringify({ stepId: requestedId, frame }),
+          signal: controller.signal,
         });
-        const reply = (await res.json()) as CoachReply & { error?: string };
-        if (!res.ok) return;
+        if (!res.ok) throw new Error(`Coach compare failed: ${res.status}`);
+        const reply = await readCoachStream(
+          res,
+          (next) => setPhase(next),
+          controller.signal,
+        );
         // Drop stale responses: a slow verdict for an earlier step must not
         // advance (or overwrite feedback for) the step the learner is on now.
         const live = graphRef.current;
         const liveStep = live?.steps[currentRef.current];
         if (!liveStep || liveStep.id !== requestedId) return;
+        retryCountRef.current = 0;
+        backoffUntilRef.current = 0;
+        setConn("live");
+        setRetryNote(null);
         setLastReply(reply);
         if (reply.correction) speak(reply.correction);
+        if (reply.verdict !== "correct") {
+          const profile = loadProfile();
+          recordFriction(profile, requestedId);
+          saveProfile(profile);
+        }
         if (reply.advance) {
+          const profile = loadProfile();
+          recordStepPass(profile, active.skillId, step.id);
+          saveProfile(profile);
           setDoneSteps((prev) => (prev.includes(step.id) ? prev : [...prev, step.id]));
           const next = currentRef.current + 1;
           setCurrent(next);
           if (next >= active.steps.length) {
             setCoaching(false);
+            setConn("idle");
             streamRef.current?.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
           }
         }
-      } catch {
-        // Transient capture or network failure: the next tick retries.
+      } catch (err) {
+        // Aborts from unmount/stop are intentional, not failures.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Transient capture or network failure: back off exponentially and
+        // say so, then let the next tick retry.
+        const attempt = retryCountRef.current + 1;
+        retryCountRef.current = attempt;
+        backoffUntilRef.current = Date.now() + Math.min(MAX_BACKOFF_MS, 1000 * 2 ** (attempt - 1));
+        setConn("retrying");
+        setRetryNote(`Connection hiccup — retrying (attempt ${attempt}). Your step is held.`);
       } finally {
-        setChecking(false);
+        clearTimeout(timeout);
+        busyRef.current = false;
       }
     }
     const timer = setInterval(() => {
@@ -164,6 +271,12 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         video.srcObject = stream;
         await video.play();
       }
+      retryCountRef.current = 0;
+      backoffUntilRef.current = 0;
+      setConn("live");
+      const profile = loadProfile();
+      startSession(profile, id);
+      saveProfile(profile);
       setCoaching(true);
     } catch (err) {
       setCameraError(
@@ -176,15 +289,20 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
 
   function stop() {
     setCoaching(false);
+    setConn("idle");
+    setPhase(null);
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   }
 
   const step = graph && !complete ? graph.steps[current] : null;
+  const connLabel =
+    conn === "live" ? "Live" : conn === "retrying" ? "Retrying" : coaching ? "Starting" : "Idle";
+  const connClass = conn === "live" ? "status-live" : conn === "retrying" ? "status-retry" : "";
 
   return (
     <>
-      <p>
+      <p className="crumbs">
         <a href="/">All skills</a>
         {graph ? (
           <>
@@ -192,98 +310,123 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
           </>
         ) : null}
       </p>
-      <h1 style={{ fontSize: 28 }}>{graph ? `Coach: ${graph.title}` : "Coach"}</h1>
+      <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 72px)" }}>
+        {graph ? `Coach: ${graph.title}` : "Coach"}
+      </h1>
+      <p className="meta-line" style={{ marginBottom: 16 }}>
+        Personal skill tutor · real-time
+      </p>
+
+      <div style={{ marginBottom: 24, maxWidth: 460 }}>
+        <SkillFinder coach />
+      </div>
 
       {loadError && !graph ? (
-        <p style={{ color: "#a00" }}>{loadError}</p>
+        <p className="error">{loadError}</p>
       ) : !graph ? (
-        <p>Loading skill…</p>
+        <p className="lede">Loading skill…</p>
       ) : graph.steps.length === 0 ? (
-        <p>
+        <p className="lede">
           This skill has no steps to coach yet.{" "}
           <a href={`/skills/${id}`}>Run the Learn pipeline first</a>.
         </p>
       ) : complete ? (
-        <section
-          style={{
-            marginTop: 24,
-            padding: 24,
-            border: "2px solid #1a7f37",
-            borderRadius: 8,
-            textAlign: "center",
-          }}
-        >
-          <h2 style={{ fontSize: 24, margin: "0 0 8px" }}>Completion badge earned</h2>
+        <section className="badge" aria-live="polite">
+          <h2>Skill locked in</h2>
           <p style={{ margin: "0 0 8px" }}>
             You completed every step of <strong>{graph.title}</strong>.
           </p>
-          <p style={{ margin: 0, color: "#555" }}>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
             {graph.steps.length} of {graph.steps.length} checkpoints passed.
+            {earned.length > 0 ? (
+              <>
+                {" "}Badge earned:{" "}
+                {earned.map((bid) => BADGES.find((b) => b.id === bid)?.name ?? bid).join(", ")} —{" "}
+                <a href="/profile">view profile</a>.
+              </>
+            ) : null}
           </p>
         </section>
       ) : (
         <>
-          <video
-            ref={videoRef}
-            muted
-            playsInline
-            style={{ width: "100%", maxHeight: 360, background: "#000" }}
-          />
-          <canvas ref={canvasRef} hidden />
+          <div className="coach-grid">
+            <div>
+              <div className="viewfinder">
+                <video ref={videoRef} muted playsInline />
+                <span className="corner corner-tl" aria-hidden="true" />
+                <span className="corner corner-tr" aria-hidden="true" />
+                <span className="corner corner-bl" aria-hidden="true" />
+                <span className="corner corner-br" aria-hidden="true" />
+              </div>
+              <canvas ref={canvasRef} hidden />
 
-          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-            {coaching ? (
-              <button onClick={stop} style={{ padding: "8px 16px" }}>
-                Stop coaching
-              </button>
-            ) : (
-              <button onClick={start} style={{ padding: "8px 16px" }}>
-                Start coaching
-              </button>
-            )}
-            <span style={{ alignSelf: "center", color: "#555" }}>
-              {coaching
-                ? checking
-                  ? "Checking your form…"
-                  : "Watching — a frame is judged every 3 seconds."
-                : "Press start to turn on the camera."}
-            </span>
-          </div>
-          {cameraError ? <p style={{ color: "#a00" }}>{cameraError}</p> : null}
+              <div style={{ marginTop: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {coaching ? (
+                  <button onClick={stop} className="btn">
+                    Stop coaching
+                  </button>
+                ) : (
+                  <button onClick={start} className="btn btn-primary">
+                    Start coaching
+                  </button>
+                )}
+                <span className={`status-pill ${connClass}`} role="status">
+                  <span className="dot" aria-hidden="true" />
+                  {connLabel}
+                </span>
+              </div>
+              <p style={{ color: "var(--muted)", fontSize: 15, minHeight: 24 }}>
+                {coaching
+                  ? phase
+                    ? `${PHASE_LABELS[phase] ?? phase}…`
+                    : "Watching — a frame is judged every few seconds."
+                  : "Press start to turn on the camera."}
+              </p>
+              {retryNote && conn === "retrying" ? <p className="error">{retryNote}</p> : null}
+              {cameraError ? <p className="error">{cameraError}</p> : null}
+            </div>
 
-          {step ? (
-            <section style={{ marginTop: 20 }}>
-              <h2 style={{ fontSize: 22, marginBottom: 4 }}>
-                Step {current + 1} of {graph.steps.length}: {step.instruction}
-              </h2>
-              <p style={{ marginTop: 0 }}>Checkpoint: {step.checkpoint}</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/skills/${id}/${step.referenceImage}`}
-                alt={`Reference pose for step ${current + 1}`}
-                width={320}
-              />
-              <p>Watch out for: {step.mistakes.join("; ") || "nothing listed"}</p>
-              {lastReply ? (
-                <p
-                  style={{
-                    color:
-                      lastReply.verdict === "correct"
-                        ? "#1a7f37"
-                        : lastReply.verdict === "nudge"
-                          ? "#9a6700"
-                          : "#a00",
-                  }}
-                >
-                  Coach: {lastReply.correction}
-                </p>
+            <div>
+              <div className="progress-segments" aria-label={`${doneSteps.length} of ${graph.steps.length} steps complete`}>
+                {graph.steps.map((candidate) => (
+                  <i key={candidate.id} className={doneSteps.includes(candidate.id) ? "hit" : ""} />
+                ))}
+              </div>
+              {step ? (
+                <section className="card">
+                  <h2 style={{ fontSize: 22, margin: "0 0 4px" }}>{step.instruction}</h2>
+                  <p className="meta-line" style={{ margin: "0 0 8px" }}>
+                    Step {current + 1} of {graph.steps.length}
+                    {lastReply?.via ? ` · via ${lastReply.via === "meta" ? "Meta live" : "local stand-in"}` : ""}
+                  </p>
+                  <p className="checkpoint">Checkpoint: {step.checkpoint}</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/skills/${id}/${step.referenceImage}`}
+                    alt={`Reference pose for step ${current + 1}`}
+                    style={{ width: "100%", borderRadius: "var(--radius)", border: "1px solid var(--line)" }}
+                  />
+                  <p className="mistakes">Watch out for: {step.mistakes.join("; ") || "nothing listed"}</p>
+                  <div className="verdict-feed" aria-live="polite">
+                    {lastReply ? (
+                      <>
+                        <span className={`verdict-tag verdict-${lastReply.verdict}`}>
+                          {lastReply.verdict}
+                        </span>
+                        <p className="correction">Coach: {lastReply.correction}</p>
+                      </>
+                    ) : null}
+                  </div>
+                </section>
               ) : null}
-            </section>
-          ) : null}
+            </div>
+          </div>
 
           <section style={{ marginTop: 24 }}>
-            <h2 style={{ fontSize: 20 }}>Checklist</h2>
-            <ol style={{ paddingLeft: 20 }}>
+            <h2 className="display" style={{ fontSize: 26, marginBottom: 12 }}>
+              Checklist
+            </h2>
+            <ol style={{ paddingLeft: 20, margin: 0 }}>
               {graph.steps.map((candidate, index) => {
                 const done = doneSteps.includes(candidate.id);
                 const isCurrent = index === current;
@@ -292,7 +435,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
                     key={candidate.id}
                     style={{
                       fontWeight: isCurrent ? 700 : 400,
-                      color: done ? "#1a7f37" : "#1a1a1a",
+                      color: done ? "var(--good)" : "var(--paper)",
                       marginBottom: 4,
                     }}
                   >
