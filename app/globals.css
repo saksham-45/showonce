@@ -1777,31 +1777,69 @@ html.is-desktop .stage-body:has(.home-fit) {
   }
 }
 
-/* Narrow windows: stack the two columns but keep the one-screen lock —
-   the lookup and sessions cells scroll internally instead of the page. */
+/* Narrow windows: the one-screen lock is a desktop composition. At phone
+   widths the page returns to normal stacked scrolling flow so every section
+   keeps its natural height — a crushed lock would clip forms. Stack order
+   follows the columns: intro, lookup, create, sessions. */
 @media (max-width: 720px) {
+  .site:has(.home-fit) {
+    height: auto;
+    overflow: visible;
+    display: block;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: var(--space-4) var(--space-3) var(--space-7);
+  }
+
+  .site:has(.home-fit) > #content {
+    display: block;
+  }
+
+  html.is-desktop .desk:has(.home-fit) {
+    height: auto;
+    overflow: visible;
+  }
+
+  html.is-desktop .stage:has(.home-fit) {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  html.is-desktop .stage-body:has(.home-fit) {
+    display: block;
+    overflow: visible;
+    max-width: 1020px;
+    margin: 0 auto;
+  }
+
   .home-fit {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1.4fr);
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
   }
 
   .home-col {
-    min-height: 0;
-    gap: 10px;
+    gap: var(--space-5);
   }
 
-  .home-intro {
-    flex: 0 0 auto;
+  .home-fill,
+  .home-sessions {
+    flex: none;
+  }
+
+  .home-create,
+  .home-scroll-card {
+    overflow: visible;
+    flex: none;
+  }
+
+  .home-scroll {
+    overflow: visible;
   }
 
   .home-title {
     font-size: clamp(26px, 8vw, 34px);
-  }
-
-  .home-create {
-    flex: 1 1 auto;
-    overflow-y: auto;
   }
 }
 
