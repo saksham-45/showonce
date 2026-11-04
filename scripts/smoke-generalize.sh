@@ -6,7 +6,7 @@
 # mistakes, assets that serve, pages that render) — never example content.
 # Graceful degradation (corrupt clip rejected with a clear 400) rides the
 # same path. Needs a stub server:
-#   SHOWNCE_PROVIDER=stub npm run start -- -p 3101 &
+#   PORT=3101 SHOWNCE_PROVIDER=stub npm run start &
 #   sh scripts/smoke-generalize.sh http://localhost:3101
 set -eu
 

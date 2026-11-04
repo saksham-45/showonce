@@ -1,0 +1,49 @@
+# ShowOnce desktop packaging (electron-builder). Unsigned dev builds are the
+# default: macOS and Windows artifacts build and run without signing
+# credentials, which is acceptable for hackathon submission. If signing
+# credentials appear later, electron-builder picks them up with no config
+# change (mac notarization needs APPLE_ID_* env; Windows needs CSC_LINK).
+appId: ai.showonce.app
+productName: ShowOnce
+copyright: Copyright © 2026 ShowOnce
+directories:
+  output: dist
+files:
+  - electron/main.js
+  - electron/preload.js
+  - package.json
+# The staged standalone server (JS trace plus the copied public/ and
+# .next/static from `npm run build`) lands beside the app as
+# Resources/standalone, which is exactly where electron/main.js starts it.
+# Two entries because the builder never copies a root-level node_modules
+# directory: the traced dependencies ship through the second entry, where
+# each package is an ordinary child path.
+extraResources:
+  - from: .next/standalone
+    to: standalone
+    filter:
+      - "**/*"
+      - "!node_modules{,/**/*}"
+  - from: .next/standalone/node_modules
+    to: standalone/node_modules
+mac:
+  category: public.app-category.education
+  icon: electron/icon.icns
+  target:
+    - dmg
+    - zip
+  extendInfo:
+    # Camera-only coaching (video in, no audio): state why at packaging so
+    # the permission prompt names the feature that needs it.
+    NSCameraUsageDescription: ShowOnce watches your movement over the camera to coach each step in real time.
+  artifactName: ShowOnce-${version}-${arch}.${ext}
+win:
+  icon: electron/icon.ico
+  target:
+    - nsis
+    - zip
+  artifactName: ShowOnce-Setup-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: ShowOnce

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import SkillFinder from "./components/SkillFinder";
+import WebLookup from "./components/WebLookup";
 
 interface SkillEntry {
   skillId: string;
@@ -103,6 +104,19 @@ export default function HomePage() {
           <div style={{ marginTop: 24 }}>
             <SkillFinder />
           </div>
+        </div>
+      </section>
+
+      <section aria-label="Learn from the web">
+        <h2 className="display" style={{ fontSize: 30, marginBottom: 8 }}>
+          No clip? Learn from the web
+        </h2>
+        <p className="lede" style={{ marginBottom: 16 }}>
+          Type a skill: ShowOnce searches for videos to watch and written guides to read, distills
+          them into steps with cited sources, and coaches you through them.
+        </p>
+        <div className="card">
+          <WebLookup />
         </div>
       </section>
 

@@ -2,10 +2,16 @@
   "name": "showonce",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "next build && node electron/stage-standalone.mjs",
+    "start": "node .next/standalone/server.js",
+    "electron": "electron .",
+    "electron:dev": "sh electron/dev.sh",
+    "dist": "electron-builder --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never"
   },
   "dependencies": {
     "next": "^16.4.3",
@@ -16,6 +22,8 @@
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.0",
     "typescript": "^7.0.2"
   }
 }
