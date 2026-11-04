@@ -11,14 +11,24 @@ import { spawn } from "node:child_process";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3102";
 const DEBUG_PORT = Number(process.argv[3] ?? 9333);
-const CHROME =
-  process.env.CHROME_BIN ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+// No default browser: driving the installed system Chrome is forbidden, so
+// CHROME_BIN (a cached headless shell) must be set explicitly.
+const CHROME = process.env.CHROME_BIN ?? "";
+if (!CHROME) {
+  console.error("audit-overlap: set CHROME_BIN to a headless-shell binary (see scripts/smoke-overlap.sh)");
+  process.exit(2);
+}
 
 const SKILL = process.env.OV_SKILL ?? "";
 const ROUTES = ["/", "/skills", "/profile", ...(SKILL ? [`/skills/${SKILL}`, `/coach/${SKILL}`] : [])];
 // Second pass with the desktop-shell class the Electron preload sets, so
 // shell-only layout rules (.desk grid) get audited too.
 const SHELL_CLASS = process.env.OV_SHELL === "1";
+// OV_STUB=1 injects the preload's window.showonce flag before page scripts
+// run, so the app renders its real desktop rail (.desk) exactly as it does
+// inside Electron — the closest headless equivalent of the packaged shell.
+const SHELL_STUB = process.env.OV_STUB === "1";
+const STUB_JS = `window.showonce = Object.assign(window.showonce || {}, { desktop: true, platform: "darwin", onNavigate: () => () => {}, onImportClip: () => () => {}, onOpenSkills: () => () => {} });`;
 const VIEWPORTS = [
   { name: "desktop", w: 1280, h: 900 },
   { name: "phone", w: 390, h: 844 },
@@ -145,6 +155,9 @@ async function main() {
       await page.send("Emulation.setDeviceMetricsOverride", {
         width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.name === "phone",
       });
+      if (SHELL_STUB) {
+        await page.send("Page.addScriptToEvaluateOnNewDocument", { source: STUB_JS });
+      }
       await page.send("Page.navigate", { url: BASE + route });
       await new Promise((r) => setTimeout(r, 3000));
       if (SHELL_CLASS) {
