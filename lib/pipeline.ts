@@ -1,7 +1,12 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { RunBudget } from "./apicache";
 import { loadConfig } from "./config";
 import { extractMedia } from "./extract";
+import { MetaProvider, StubProvider, type LearnProvider } from "./providers";
+import { isSkillGraph, type SkillGraph } from "./skillgraph";
+import { skillDir } from "./store";
+import { logRunLine, recordLearnRun, usageSnapshot } from "./usage";
 
 // Accept PNG, JPEG, WebP, or GIF bytes; anything else fails fast with the step
 // named instead of persisting an undisplayable reference.
@@ -15,15 +20,13 @@ function isImageBytes(bytes: Buffer): boolean {
   const head = bytes.subarray(0, 6).toString("ascii");
   return head === "GIF87a" || head === "GIF89a";
 }
-import { MetaProvider, StubProvider, type LearnProvider } from "./providers";
-import { isSkillGraph, type SkillGraph } from "./skillgraph";
-import { skillDir } from "./store";
-
 // Run the Learn pipeline for one skill: extract, segment, transcribe, fuse,
 // generate reference images, persist the skill-graph JSON + assets.
 export async function runLearnPipeline(skillId: string, title: string): Promise<SkillGraph> {
   const config = loadConfig();
   const dir = skillDir(skillId);
+  recordLearnRun();
+  const before = usageSnapshot();
 
   let provider: LearnProvider;
   if (config.provider === "stub") {
@@ -34,59 +37,84 @@ export async function runLearnPipeline(skillId: string, title: string): Promise<
         "Learn pipeline needs META_API_KEY (or set SHOWNCE_PROVIDER=stub for local proof). Put the key in the META_API_KEY environment variable or .env.local; it is never committed.",
       );
     }
-    provider = new MetaProvider(config.apiBase, config.apiKey);
+    provider = new MetaProvider(
+      config.apiBase,
+      config.apiKey,
+      new RunBudget(config.apiCallCap),
+      config.transcriptBudgetChars,
+      config.regionsPerFrame,
+    );
   }
+
+  const runLine = (status: string, frameCount: number, stepCount: number) => {
+    const after = usageSnapshot();
+    logRunLine(
+      `learn skill=${skillId} status=${status} frames=${frameCount} steps=${stepCount} ` +
+        `apiCalls=${after.apiCalls.total - before.apiCalls.total} ` +
+        `cacheHits=${after.cacheHits - before.cacheHits} cap=${config.provider === "meta" ? config.apiCallCap : "n/a"}`,
+    );
+  };
 
   const { frames, audioPath, durationSeconds } = await extractMedia(dir, config.framesPerSecond, config.modelFrameBudget);
   if (frames.length === 0) {
     throw new Error("Frame extraction produced no frames; is the uploaded clip valid video?");
   }
 
-  const segmentations = await provider.segmentFrames(frames, path.join(dir, "frames"));
-  for (const seg of segmentations) {
-    await fs.writeFile(path.join(dir, "masks", `${path.parse(seg.frame).name}.json`), JSON.stringify(seg, null, 2));
+  try {
+    return await runStages();
+  } catch (error) {
+    runLine("failed", frames.length, 0);
+    throw error;
   }
 
-  const transcript = await provider.transcribe(audioPath);
-  await fs.writeFile(path.join(dir, "transcript.json"), JSON.stringify(transcript, null, 2));
-  // An empty transcript is tolerated by design: silent clips still fuse from
-  // vision and masks. Only a fusion with zero steps fails validation below.
-
-  const fused = await provider.fuse({ title, durationSeconds, frames, segmentations, transcript });
-
-  // A confabulating model must not point steps at frames that do not exist;
-  // fail with the step named instead of an ENOENT from the copy below.
-  const frameFiles = new Set(frames.map((frame) => frame.file));
-  for (const draft of fused.steps) {
-    if (!frameFiles.has(path.basename(draft.keyframe))) {
-      throw new Error(`Fusion returned unknown keyframe '${draft.keyframe}' for ${draft.id}.`);
+  async function runStages(): Promise<SkillGraph> {
+    const segmentations = await provider.segmentFrames(frames, path.join(dir, "frames"));
+    for (const seg of segmentations) {
+      await fs.writeFile(path.join(dir, "masks", `${path.parse(seg.frame).name}.json`), JSON.stringify(seg, null, 2));
     }
-  }
 
-  const steps = [];
-  for (const draft of fused.steps) {
-    const referenceBytes = await provider.referenceImage(draft);
-    if (!isImageBytes(referenceBytes)) {
-      throw new Error(`Reference image for ${draft.id} is not a known image format.`);
+    const transcript = await provider.transcribe(audioPath);
+    await fs.writeFile(path.join(dir, "transcript.json"), JSON.stringify(transcript, null, 2));
+    // An empty transcript is tolerated by design: silent clips still fuse from
+    // vision and masks. Only a fusion with zero steps fails validation below.
+
+    const fused = await provider.fuse({ title, durationSeconds, frames, segmentations, transcript });
+
+    // A confabulating model must not point steps at frames that do not exist;
+    // fail with the step named instead of an ENOENT from the copy below.
+    const frameFiles = new Set(frames.map((frame) => frame.file));
+    for (const draft of fused.steps) {
+      if (!frameFiles.has(path.basename(draft.keyframe))) {
+        throw new Error(`Fusion returned unknown keyframe '${draft.keyframe}' for ${draft.id}.`);
+      }
     }
-    const referenceName = `${draft.id}.png`;
-    await fs.writeFile(path.join(dir, "references", referenceName), referenceBytes);
-    const keyframeName = `${draft.id}.jpg`;
-    await fs.copyFile(path.join(dir, "frames", draft.keyframe), path.join(dir, "keyframes", keyframeName));
-    steps.push({ ...draft, referenceImage: `references/${referenceName}`, keyframe: `keyframes/${keyframeName}` });
-  }
 
-  const graph: SkillGraph = {
-    version: 1,
-    skillId,
-    title: fused.title,
-    clipDurationSeconds: durationSeconds,
-    transcript,
-    steps,
-  };
-  if (!isSkillGraph(graph)) {
-    throw new Error("Fused skill graph failed validation");
+    const steps = [];
+    for (const draft of fused.steps) {
+      const referenceBytes = await provider.referenceImage(draft);
+      if (!isImageBytes(referenceBytes)) {
+        throw new Error(`Reference image for ${draft.id} is not a known image format.`);
+      }
+      const referenceName = `${draft.id}.png`;
+      await fs.writeFile(path.join(dir, "references", referenceName), referenceBytes);
+      const keyframeName = `${draft.id}.jpg`;
+      await fs.copyFile(path.join(dir, "frames", draft.keyframe), path.join(dir, "keyframes", keyframeName));
+      steps.push({ ...draft, referenceImage: `references/${referenceName}`, keyframe: `keyframes/${keyframeName}` });
+    }
+
+    const graph: SkillGraph = {
+      version: 1,
+      skillId,
+      title: fused.title,
+      clipDurationSeconds: durationSeconds,
+      transcript,
+      steps,
+    };
+    if (!isSkillGraph(graph)) {
+      throw new Error("Fused skill graph failed validation");
+    }
+    await fs.writeFile(path.join(dir, "skill-graph.json"), JSON.stringify(graph, null, 2));
+    runLine("ok", frames.length, steps.length);
+    return graph;
   }
-  await fs.writeFile(path.join(dir, "skill-graph.json"), JSON.stringify(graph, null, 2));
-  return graph;
 }

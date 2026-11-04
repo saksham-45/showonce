@@ -103,6 +103,37 @@ deterministic search-page links (never invented video URLs).
 With no key present, the stub providers run the whole flow deterministically: 5-step paper
 airplane graph, pass-on-visible-frame coaching, and the badge.
 
+## API cost budgeting
+
+Same features, fewer and smarter calls. Per Learn run the Meta path costs at most one
+segmentation call per budgeted frame, one transcription, one fuse, and one reference image
+per step (a default run: 60 + 1 + 1 + ~5); the coach costs two calls per judged tick and
+web lookup costs one Responses call per distinct query.
+Four mechanisms keep that number down across repeated test runs.
+Fixed input budgets extend the frame-budget pattern: transcript characters
+(`SHOWNCE_TRANSCRIPT_CHARS`) and regions per frame (`SHOWNCE_REGIONS_PER_FRAME`) sent to
+the fuse call are capped deterministically, so narration length and scene clutter are free.
+A deterministic response cache (`lib/apicache.ts`, `SHOWNCE_CACHE_DIR`) keyed by input
+hash means identical reruns make zero new calls — file-backed across restarts, shared
+in-flight within a run; the Meta request shapes are byte-identical on a miss.
+Request dedup covers what the cache cannot: duplicate frames inside one Learn run share
+one segmentation, and the coach reuses the last verdict for an identical step + frame
+inside `SHOWNCE_COACH_DEDUP_MS`.
+A configurable per-run cap (`SHOWNCE_API_CALL_CAP`, default frames + 64) counts attempted
+calls only — cache hits are free, so reruns succeed under tight caps — and tripping it
+fails fast with a 429 naming the cap, surfaced by the existing error states; the coach
+keeps its stub fallback with its `via` marker.
+No Meta endpoint here takes a batch of items (SAM segments one image, generations
+renders one prompt), so batching has no supported shape; the budget + cache + dedup
+combination is the batching-equivalent saving.
+Usage is visible, never blind: every Learn/Lookup run logs one `[showonce-usage]` line
+with its call and hit counts, `GET /api/usage` reports cumulative calls by model plus
+budgeted input totals since boot, and the home page carries an API-usage section fed by
+that endpoint.
+Token totals are deliberately not reported: the responses used here do not guarantee a
+usage field, so the ledger records calls, frames, transcript characters, and image
+counts instead of inventing token numbers.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -111,6 +142,12 @@ airplane graph, pass-on-visible-frame coaching, and the badge.
 | `SHOWNCE_PROVIDER` | `meta` | `meta` for live models, `stub` for deterministic local proof |
 | `SHOWNCE_STEPS` | `5` | Phases the stub stand-in splits any clip into (1–12; the Meta path lets the model decide) |
 | `SHOWNCE_MODEL_FRAMES` | `60` | Max sampled frames sent to the model per Learn run (8–240); longer clips are evenly downsampled to this budget |
+| `SHOWNCE_TRANSCRIPT_CHARS` | `8000` | Max transcript characters sent to the fuse call (1000–48000); longer narration is cut to a leading prefix of segments |
+| `SHOWNCE_REGIONS_PER_FRAME` | `20` | Max segmentation regions per frame sent to the fuse call (1–100); kept by score, highest first |
+| `SHOWNCE_API_CALL_CAP` | frames + 64 | Max attempted Meta calls per Learn or Lookup run (1–10000); tripping it answers 429 naming the cap |
+| `SHOWNCE_COACH_DEDUP_MS` | `30000` | Window in which an identical step + frame reuses the last verdict with zero new calls (0 disables, max 300000) |
+| `SHOWNCE_CACHE` | on | Set to `off` to disable the deterministic Meta response cache (memory + `.showonce-cache/`) |
+| `SHOWNCE_CACHE_DIR` | `.showonce-cache/` | Override for the Meta response cache directory (proof runs point it at a temp dir) |
 | `SHOWNCE_CLIP` | — | Expert clip path; used by the smoke scripts when set |
 | `SHOWNCE_SMOKE_CLIP` | — | Clip file for `scripts/smoke-*.sh` (falls back to `SHOWNCE_CLIP`) |
 | `SHOWNCE_DATA_DIR` | `public/skills` | Per-skill storage root (proof runs point it at a temp dir) |
@@ -232,6 +269,7 @@ SHOWNCE_SMOKE_CLIP=path/to/clip.mp4 sh scripts/smoke-learn.sh http://localhost:3
 SHOWNCE_SMOKE_CLIP=path/to/clip.mp4 sh scripts/smoke-coach.sh http://localhost:3000
 sh scripts/smoke-lookup.sh http://localhost:3000
 sh scripts/smoke-generalize.sh http://localhost:3000
+sh scripts/smoke-cost.sh
 npm run dist:mac && sh scripts/smoke-electron.sh
 ```
 
@@ -256,6 +294,12 @@ window-state persistence, single-instance lock, About, loading page), the typed 
 bridge, the renderer shell (drop zone, sidebar rail, offline bar, notification call
 sites), zero blue-forward remnants, and that the served prod home carries the new
 drop zone while web SSR keeps browser chrome.
+`smoke-cost.sh` boots its own servers (stub plus a counting fake Meta API, so it spends
+no real key) and proves the budgeting contract: stub flows make zero API calls, a cold
+metered Learn costs exactly frames + 1 + 1 + steps with the frame budget holding on a
+12-frame clip at budget 8, identical Learn/lookup/coach repeats make zero new calls,
+a cap of 2 trips after exactly 2 attempts with a named 429, and `/api/usage` plus the
+home section report the cumulative totals.
 
 Status: Learn, real-time Coach, and web lookup run end to end on the stub providers in
 production builds, and the packaged macOS app launches green; the live Meta proofs

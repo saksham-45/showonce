@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import { deflateSync } from "node:zlib";
+import { RunBudget, cacheKey, cachedBytes, cachedJson, sha256Hex } from "./apicache";
 import type {
   FrameSegmentation,
   SampledFrame,
@@ -7,6 +8,7 @@ import type {
   SkillStep,
   Transcript,
 } from "./skillgraph";
+import { recordApiCall, recordFrames, recordReferenceImage, recordTranscriptChars } from "./usage";
 
 // One provider call set per pipeline run. "meta" targets the Meta Model API;
 // "stub" is a deterministic local stand-in used for pipeline proof when no
@@ -91,113 +93,182 @@ const FUSE_SYSTEM_PROMPT = [
   "checkpoint describes the exact visual to check before moving on.",
 ].join(" ");
 
+// Fuse-input budgets in the extract.ts pattern: the transcript past
+// `transcriptBudgetChars` is cut to a leading prefix of segments (the first
+// segment is always kept, so a non-empty transcript never fuses as silent),
+// and each frame keeps only its `regionsPerFrame` top-scoring regions.
+// Both cuts are deterministic — same input, same budgeted input, same
+// cache key — so reruns stay zero-call.
+export function capTranscriptChars(transcript: Transcript, budgetChars: number): Transcript {
+  const kept: Transcript["segments"] = [];
+  let used = 0;
+  for (const segment of transcript.segments) {
+    if (kept.length > 0 && used + segment.text.length > budgetChars) break;
+    kept.push(segment);
+    used += segment.text.length;
+  }
+  return { segments: kept };
+}
+
+export function capRegionsPerFrame(segmentations: FrameSegmentation[], regionsPerFrame: number): FrameSegmentation[] {
+  // Array sort is stable, so score ties keep their input order: the cut is
+  // deterministic for the same segmentation.
+  return segmentations.map((seg) => ({
+    frame: seg.frame,
+    regions: [...seg.regions].sort((a, b) => b.score - a.score).slice(0, Math.max(1, regionsPerFrame)),
+  }));
+}
+
 export class MetaProvider implements LearnProvider {
   constructor(
     private apiBase: string,
     private apiKey: string,
+    private budget: RunBudget = RunBudget.unlimited(),
+    private transcriptBudgetChars = 8000,
+    private regionsPerFrame = 20,
   ) {}
 
   private headers(): Record<string, string> {
     return { Authorization: `Bearer ${this.apiKey}` };
   }
 
+  // One chat call per frame: the SAM endpoint takes a single image, so no
+  // batch shape exists to use — the savings are the frame budget upstream
+  // plus this content-hash cache, which turns identical reruns (and
+  // duplicate frames inside one run) into zero new calls.
   async segmentFrames(frames: SampledFrame[], framesDir: string): Promise<FrameSegmentation[]> {
     const out: FrameSegmentation[] = [];
     for (const frame of frames) {
       const bytes = await fs.readFile(`${framesDir}/${frame.file}`);
-      const res = await fetch(`${this.apiBase}/chat/completions`, {
-        method: "POST",
-        headers: { ...this.headers(), "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "sam-3.1",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: 'List the visible hands, tools, and objects as JSON: {"regions": [{"label": string, "box": [x, y, w, h], "score": number}]} with normalized 0-1 boxes.' },
-                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${bytes.toString("base64")}` } },
-              ],
-            },
-          ],
-          response_format: { type: "json_object" },
-        }),
+      const key = cacheKey({ model: "sam-3.1", kind: "segment", frame: sha256Hex(bytes) });
+      const { value } = await cachedJson<{ regions: FrameSegmentation["regions"] }>("segment", key, async () => {
+        this.budget.consume("sam-3.1 frame segmentation");
+        recordApiCall("sam-3.1");
+        recordFrames(1);
+        const res = await fetch(`${this.apiBase}/chat/completions`, {
+          method: "POST",
+          headers: { ...this.headers(), "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "sam-3.1",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: 'List the visible hands, tools, and objects as JSON: {"regions": [{"label": string, "box": [x, y, w, h], "score": number}]} with normalized 0-1 boxes.' },
+                  { type: "image_url", image_url: { url: `data:image/jpeg;base64,${bytes.toString("base64")}` } },
+                ],
+              },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (!res.ok) {
+          throw new Error(`Meta API sam-3.1 failed: ${res.status} ${await res.text()}`);
+        }
+        const body = (await res.json()) as { choices: { message: { content: string } }[] };
+        const parsed = parseModelJson<{ regions: FrameSegmentation["regions"] }>(
+          "sam-3.1",
+          body.choices[0].message.content,
+        );
+        return { regions: parsed.regions ?? [] };
       });
-      if (!res.ok) {
-        throw new Error(`Meta API sam-3.1 failed: ${res.status} ${await res.text()}`);
-      }
-      const body = (await res.json()) as { choices: { message: { content: string } }[] };
-      const parsed = parseModelJson<{ regions: FrameSegmentation["regions"] }>(
-        "sam-3.1",
-        body.choices[0].message.content,
-      );
-      out.push({ frame: frame.file, regions: parsed.regions ?? [] });
+      out.push({ frame: frame.file, regions: value.regions });
     }
     return out;
   }
 
   async transcribe(audioPath: string): Promise<Transcript> {
     const audio = await fs.readFile(audioPath);
-    const form = new FormData();
-    form.append("model", "muse-voice-transcribe-1.0");
-    form.append("file", new Blob([audio], { type: "audio/wav" }), "audio.wav");
-    form.append("response_format", "verbose_json");
-    const res = await fetch(`${this.apiBase}/audio/transcriptions`, {
-      method: "POST",
-      headers: this.headers(),
-      body: form,
+    const key = cacheKey({ model: "muse-voice-transcribe-1.0", kind: "transcript", audio: sha256Hex(audio) });
+    const { value } = await cachedJson<Transcript>("transcript", key, async () => {
+      this.budget.consume("muse-voice transcription");
+      recordApiCall("muse-voice-transcribe-1.0");
+      const form = new FormData();
+      form.append("model", "muse-voice-transcribe-1.0");
+      form.append("file", new Blob([audio], { type: "audio/wav" }), "audio.wav");
+      form.append("response_format", "verbose_json");
+      const res = await fetch(`${this.apiBase}/audio/transcriptions`, {
+        method: "POST",
+        headers: this.headers(),
+        body: form,
+      });
+      if (!res.ok) {
+        throw new Error(`Meta API muse-voice-transcribe-1.0 failed: ${res.status} ${await res.text()}`);
+      }
+      const body = (await res.json()) as { segments?: { start: number; end: number; text: string }[]; text?: string };
+      if (body.segments) {
+        return { segments: body.segments.map((s) => ({ startSeconds: s.start, endSeconds: s.end, text: s.text })) };
+      }
+      return { segments: [{ startSeconds: 0, endSeconds: 0, text: body.text ?? "" }] };
     });
-    if (!res.ok) {
-      throw new Error(`Meta API muse-voice-transcribe-1.0 failed: ${res.status} ${await res.text()}`);
-    }
-    const body = (await res.json()) as { segments?: { start: number; end: number; text: string }[]; text?: string };
-    if (body.segments) {
-      return { segments: body.segments.map((s) => ({ startSeconds: s.start, endSeconds: s.end, text: s.text })) };
-    }
-    return { segments: [{ startSeconds: 0, endSeconds: 0, text: body.text ?? "" }] };
+    return value;
   }
 
   async fuse(input: FuseInput): Promise<{ title: string; steps: StepDraft[] }> {
-    const content = await chatCompletions(
-      this.apiBase,
-      this.apiKey,
-      "muse-spark-1.3",
-      [
-        { role: "system", content: FUSE_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: JSON.stringify({
-            title: input.title,
-            durationSeconds: input.durationSeconds,
-            frames: input.frames.map((f) => ({ file: f.file, atSeconds: f.atSeconds })),
-            segmentations: input.segmentations,
-            transcript: input.transcript,
-          }),
-        },
-      ],
-    );
-    return parseModelJson<{ title: string; steps: StepDraft[] }>("muse-spark-1.3", content);
+    const transcript = capTranscriptChars(input.transcript, this.transcriptBudgetChars);
+    const segmentations = capRegionsPerFrame(input.segmentations, this.regionsPerFrame);
+    const transcriptChars = transcript.segments.reduce((sum, s) => sum + s.text.length, 0);
+    const payload = {
+      title: input.title,
+      durationSeconds: input.durationSeconds,
+      frames: input.frames.map((f) => ({ file: f.file, atSeconds: f.atSeconds })),
+      segmentations,
+      transcript,
+    };
+    const key = cacheKey({ model: "muse-spark-1.3", kind: "fuse", input: payload });
+    const { value } = await cachedJson<{ title: string; steps: StepDraft[] }>("fuse", key, async () => {
+      this.budget.consume("muse-spark fuse");
+      recordApiCall("muse-spark-1.3");
+      recordTranscriptChars(transcriptChars);
+      const content = await chatCompletions(
+        this.apiBase,
+        this.apiKey,
+        "muse-spark-1.3",
+        [
+          { role: "system", content: FUSE_SYSTEM_PROMPT },
+          { role: "user", content: JSON.stringify(payload) },
+        ],
+      );
+      return parseModelJson<{ title: string; steps: StepDraft[] }>("muse-spark-1.3", content);
+    });
+    return value;
   }
 
+  // One image call per step: the generations endpoint takes a single
+  // prompt, so identical steps (same instruction + checkpoint) share one
+  // cached image instead of repeat renders.
   async referenceImage(step: StepDraft): Promise<Buffer> {
-    const res = await fetch(`${this.apiBase}/images/generations`, {
-      method: "POST",
-      headers: { ...this.headers(), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "muse-image-1.0",
-        prompt: `Corrective reference photo for a learner doing this step of a physical skill. Show the correct hand position and object placement, photorealistic, close-up, neutral background. Step: ${step.instruction} Checkpoint: ${step.checkpoint}`,
-      }),
+    const key = cacheKey({
+      model: "muse-image-1.0",
+      kind: "reference",
+      instruction: step.instruction,
+      checkpoint: step.checkpoint,
     });
-    if (!res.ok) {
-      throw new Error(`Meta API muse-image-1.0 failed: ${res.status} ${await res.text()}`);
-    }
-    const body = (await res.json()) as { data: { b64_json?: string; url?: string }[] };
-    const first = body.data[0];
-    if (first.b64_json) return Buffer.from(first.b64_json, "base64");
-    if (first.url) {
-      const img = await fetch(first.url);
-      return Buffer.from(await img.arrayBuffer());
-    }
-    throw new Error("Meta API muse-image-1.0 returned no image data");
+    const { bytes } = await cachedBytes("reference", key, async () => {
+      this.budget.consume(`muse-image reference for ${step.id}`);
+      recordApiCall("muse-image-1.0");
+      const res = await fetch(`${this.apiBase}/images/generations`, {
+        method: "POST",
+        headers: { ...this.headers(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "muse-image-1.0",
+          prompt: `Corrective reference photo for a learner doing this step of a physical skill. Show the correct hand position and object placement, photorealistic, close-up, neutral background. Step: ${step.instruction} Checkpoint: ${step.checkpoint}`,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`Meta API muse-image-1.0 failed: ${res.status} ${await res.text()}`);
+      }
+      const body = (await res.json()) as { data: { b64_json?: string; url?: string }[] };
+      const first = body.data[0];
+      if (first.b64_json) return Buffer.from(first.b64_json, "base64");
+      if (first.url) {
+        const img = await fetch(first.url);
+        return Buffer.from(await img.arrayBuffer());
+      }
+      throw new Error("Meta API muse-image-1.0 returned no image data");
+    });
+    recordReferenceImage();
+    return bytes;
   }
 }
 

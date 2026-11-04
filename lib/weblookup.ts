@@ -2,6 +2,8 @@
 // written instructions on the net, then distill them into guide steps with
 // cited sources. The guide feeds the existing Learn/Coach loop: saving it
 // creates a skill whose graph the coach judges frames against.
+import { RunBudget, cacheKey, cachedJson } from "./apicache";
+import { recordApiCall } from "./usage";
 //
 // Provider choice mirrors the Learn pipeline. "meta" uses the Meta Model
 // API's search grounding (Responses API with the `web_search` tool, per
@@ -130,32 +132,45 @@ export class MetaLookupProvider implements WebLookupProvider {
   constructor(
     private apiBase: string,
     private apiKey: string,
+    private budget: RunBudget = RunBudget.unlimited(),
   ) {}
 
+  // One Responses call per distinct query: the raw Responses body is
+  // cached under the normalized query, so case/whitespace variants of a
+  // repeated test query share one call. Parsing still runs every time, so
+  // validation stays exact and the guide echoes the current spelling.
   async lookup(query: string): Promise<WebGuide> {
-    const res = await fetch(`${this.apiBase}/responses`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "muse-spark-1.3",
-        input: LOOKUP_PROMPT(query),
-        tools: [{ type: "web_search" }],
-        include: ["web_search_call.results"],
-      }),
-      signal: AbortSignal.timeout(90_000),
+    const key = cacheKey({
+      model: "muse-spark-1.3",
+      kind: "lookup",
+      query: query.trim().toLowerCase().replace(/\s+/g, " "),
     });
-    if (!res.ok) {
-      throw new Error(`Meta API web lookup failed: ${res.status} ${await res.text()}`);
-    }
-    let body: { output?: ResponsesItem[] };
-    try {
-      body = (await res.json()) as { output?: ResponsesItem[] };
-    } catch {
-      throw new Error("Meta API web lookup returned a non-JSON response.");
-    }
+    const { value: body } = await cachedJson<{ output?: ResponsesItem[] }>("lookup", key, async () => {
+      this.budget.consume("muse-spark web lookup");
+      recordApiCall("muse-spark-1.3");
+      const res = await fetch(`${this.apiBase}/responses`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "muse-spark-1.3",
+          input: LOOKUP_PROMPT(query),
+          tools: [{ type: "web_search" }],
+          include: ["web_search_call.results"],
+        }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      if (!res.ok) {
+        throw new Error(`Meta API web lookup failed: ${res.status} ${await res.text()}`);
+      }
+      try {
+        return (await res.json()) as { output?: ResponsesItem[] };
+      } catch {
+        throw new Error("Meta API web lookup returned a non-JSON response.");
+      }
+    });
     const output = Array.isArray(body.output) ? body.output : [];
 
     const texts: string[] = [];

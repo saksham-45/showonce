@@ -9,6 +9,7 @@ build/
 .env.local
 /public/skills/
 /data/
+.showonce-cache/
 __pycache__/
 .venv/
 .DS_Store
