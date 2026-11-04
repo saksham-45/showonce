@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Anton, IBM_Plex_Mono, Newsreader } from "next/font/google";
-import SiteNav from "./components/SiteNav";
+import { Fraunces, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import ShellChrome, { DesktopHooks } from "./components/ShellChrome";
 import "./globals.css";
 
 // Type pairing (each family has a job, never a single identity):
-// Anton — condensed poster display for headlines and step numerals.
+// Fraunces — refined editorial display for headlines and numerals.
 // Newsreader — refined serif for reading: instructions, labels, corrections.
 // IBM Plex Mono — data and state only: timings, counts, statuses, ids.
-const display = Anton({ subsets: ["latin"], weight: "400", variable: "--font-display" });
+const display = Fraunces({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-display" });
 const body = Newsreader({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-body" });
 const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-mono" });
 
@@ -23,14 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a className="skip-link" href="#content">
           Skip to content
         </a>
+        <DesktopHooks />
         <main className="site">
-          <header className="topbar">
-            <a className="wordmark" href="/">
-              SHOW<b>ONCE</b>
-            </a>
-            <SiteNav />
-          </header>
-          <div id="content">{children}</div>
+          <ShellChrome>{children}</ShellChrome>
         </main>
       </body>
     </html>

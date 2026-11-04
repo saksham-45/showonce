@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { BADGES, loadProfile, recordLearn, saveProfile } from "@/lib/progress";
 import type { SkillGraph } from "@/lib/skillgraph";
+import { notifyDesktop, primeDesktopNotifications } from "../../components/desktop";
 
 interface StoredGuide {
   query: string;
@@ -55,6 +56,13 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
       const event = recordLearn(profile, id, body.title);
       saveProfile(profile);
       setEarned(event.earned);
+      // A finished Learn run is a coaching event worth a native notice on
+      // the desktop shell; browsers stay quiet.
+      primeDesktopNotifications().catch(() => {});
+      notifyDesktop(
+        "Learn pipeline finished",
+        `${body.steps.length} steps studied for ${body.title}.`,
+      ).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pipeline failed.");
     } finally {

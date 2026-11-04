@@ -118,7 +118,24 @@ airplane graph, pass-on-visible-frame coaching, and the badge.
 ## Desktop app
 
 The same Next.js app ships as a macOS and Windows desktop shell (`electron/`,
-packaged with electron-builder per `electron-builder.yml`). The window loads the
+packaged with electron-builder per `electron-builder.yml`). The window is native
+chrome, not a website in a viewport: a hidden title bar keeps the platform
+window controls (traffic lights on macOS, overlay caption buttons on Windows)
+above a drag strip, a sidebar rail replaces the web top bar, and a real app menu
+drives the sections.
+Shortcuts: `Cmd/Ctrl+1` Learn, `Cmd/Ctrl+2` Library, `Cmd/Ctrl+3` Profile,
+`Cmd/Ctrl+O` Import expert clip (opens the drop zone, navigating home first),
+plus the standard Edit roles so web inputs behave, and View roles for reload
+and zoom.
+Native notifications announce finished Learn runs, passed checkpoints while the
+coach tab is in the background, and full circuits with earned badges.
+Window bounds persist across launches (`showonce-window.json` in the per-user
+app-data folder, with an off-screen fallback to a centered default), a second
+launch focuses the running window, and a local loading page covers the boot gap
+with an explicit error state if the bundled server never answers.
+An offline banner names what still works without a connection (learned skills
+and the coach on this machine) instead of failing silently.
+The window loads the
 local dev server in development and the bundled standalone server in production,
 so Learn, Coach, and web lookup behave exactly like the browser build.
 
@@ -159,9 +176,18 @@ nothing is mocked.
 
 ## Interface polish
 
-The Meta-blue world, real-time coach behavior, reward system, and generic
+The quiet-premium world, real-time coach behavior, reward system, and generic
 pipeline are fixed points; this section records the feel conventions added
 on top of them so later edits stay consistent.
+The old Meta-blue theme is the anti-reference: no gradients, no blue-forward
+accents, no glow shadows anywhere in the app or the shell.
+Palette is restrained neutrals (paper, paper-2, ink, hairline borders) with one
+quiet botanical accent reserved for live state, progress, and focus; primary
+actions are ink slabs, everything else is a hairline ghost.
+Headlines are set in Fraunces (sentence case, never shouty uppercase), reading
+in Newsreader, data and state in IBM Plex Mono with tabular numerals.
+Uploads land on a real drop zone (drag anywhere onto the well, browse as
+fallback, file chip with size and remove) rather than a bare file row.
 
 Feel system (`app/globals.css`): nested radii step down (16 → 12 → 8) so
 cards, controls, and in-card images stay concentric; live numbers and state
@@ -222,6 +248,12 @@ phases, length, look, and sound).
 5 steps, cited sources), saving the guide as a coachable skill with persisted sources,
 and that the guide feeds the existing coach loop; `smoke-electron.sh` proves the packaged
 macOS app boots its bundled server and serves the API, an app route, and the home page.
+`smoke-desktop.sh http://localhost:3102` proves the native shell and the redesign without
+a display: main-process chrome (hidden titlebar, menu, section and import shortcuts,
+window-state persistence, single-instance lock, About, loading page), the typed preload
+bridge, the renderer shell (drop zone, sidebar rail, offline bar, notification call
+sites), zero blue-forward remnants, and that the served prod home carries the new
+drop zone while web SSR keeps browser chrome.
 
 Status: Learn, real-time Coach, and web lookup run end to end on the stub providers in
 production builds, and the packaged macOS app launches green; the live Meta proofs

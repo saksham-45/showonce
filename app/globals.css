@@ -1,30 +1,35 @@
-/* ShowOnce design system — "mission control".
-   Blue-forward Meta palette: abyss-navy surfaces, ice-blue type, one signal
-   blue with a deep-blue shadow. Hard edges, real hierarchy, and exactly one
-   orchestrated milestone moment (the completion badge). */
+/* ShowOnce design system — "quiet premium".
+   Restrained neutral paper, hairline borders, one quiet botanical accent.
+   Primary actions are ink; the accent is reserved for live state, progress,
+   and focus. No gradients, no glow, no blue-forward theme. */
 
 :root {
-  --ink: #050c18;
-  --ink-2: #0a1526;
-  --ink-3: #102138;
-  --paper: #eaf2ff;
-  --muted: #9fb6d4;
-  --faint: #63789b;
-  --line: rgba(234, 242, 255, 0.16);
-  --accent: #3395ff;
-  --accent-hi: #6db4ff;
-  --accent-deep: #0064e0;
-  --accent-ink: #04101f;
-  --good: #3ecf8e;
-  --warn: #ffb224;
-  --bad: #ff8a8a;
-  --gold: #e8b93e;
-  --radius: 12px;
-  --radius-lg: 16px;
+  --paper: #ffffff;
+  --paper-2: #f4f4f5;
+  --ink: #141416;
+  --ink-2: #3f3f46;
+  --muted: #52525b;
+  --faint: #76767e;
+  --line: #e2e2e6;
+  --line-soft: #ededf0;
+  --accent: #1e6b3f;
+  --accent-deep: #14492b;
+  --accent-ink: #ffffff;
+  --accent-wash: #e8f1eb;
+  --good: #1e6b3f;
+  --warn: #9a5b00;
+  --warn-wash: #faf0dc;
+  --bad: #b3261e;
+  --bad-wash: #f9e8e7;
+  --gold-coin: #f2e7c6;
+  --gold-ink: #5f4b0e;
+  --gold-line: #ddd0a4;
+  --radius: 10px;
+  --radius-lg: 14px;
   --radius-sm: 8px;
-  /* One depth system: offset plus blur. Borders separate, shadows elevate. */
-  --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
-  --shadow-accent: 0 14px 34px rgba(0, 100, 224, 0.35);
+  /* One soft neutral elevation, used sparingly: raised cards, the
+     drop zone on drag-over, the completion badge. */
+  --shadow: 0 1px 2px rgba(20, 20, 22, 0.05), 0 8px 24px rgba(20, 20, 22, 0.07);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;
@@ -39,22 +44,28 @@
 }
 
 html {
-  background: var(--ink);
+  background: var(--paper);
+}
+
+html.is-desktop {
+  background: var(--paper);
 }
 
 body {
   margin: 0;
-  color: var(--paper);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   text-wrap: pretty;
-  /* Flat mission-control surface. Depth comes from borders and the one
-     shadow system, not background effects. */
-  background: var(--ink);
+  background: var(--paper);
   font-family: var(--font-body), Georgia, serif;
   font-size: 17px;
   line-height: 1.55;
   min-height: 100vh;
+}
+
+::selection {
+  background: var(--accent-wash);
 }
 
 .site {
@@ -63,23 +74,32 @@ body {
   padding: var(--space-4) var(--space-4) var(--space-7);
 }
 
+html.is-desktop .site {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 a {
-  color: var(--paper);
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 2px;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
 a:hover {
-  color: var(--accent-hi);
+  color: var(--accent-deep);
+  text-decoration-color: var(--accent);
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
-/* Top bar: wordmark left, section nav right. */
+/* Web top bar: wordmark left, section nav right. Hidden in the desktop
+   shell, where the sidebar rail takes over. */
 .topbar {
   display: flex;
   align-items: baseline;
@@ -91,15 +111,24 @@ a:hover {
   flex-wrap: wrap;
 }
 
+html.is-desktop .topbar {
+  display: none;
+}
+
 .wordmark {
-  font-family: var(--font-display), sans-serif;
-  font-size: 22px;
-  letter-spacing: 0.04em;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 500;
+  font-size: 24px;
+  letter-spacing: -0.01em;
   text-decoration: none;
-  color: var(--paper);
+  color: var(--ink);
   display: inline-flex;
   align-items: center;
   min-height: 40px;
+}
+
+.wordmark:hover {
+  color: var(--ink);
 }
 
 /* Skip link: hidden until keyboard focus lands on it. */
@@ -108,8 +137,8 @@ a:hover {
   left: 16px;
   top: -64px;
   z-index: 100;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  color: var(--paper);
   font-weight: 600;
   font-size: 15px;
   text-decoration: none;
@@ -128,15 +157,6 @@ a:hover {
   outline-offset: 2px;
 }
 
-.wordmark:hover {
-  color: var(--paper);
-}
-
-.wordmark b {
-  color: var(--accent);
-  font-weight: 400;
-}
-
 .sitenav {
   display: flex;
   gap: var(--space-3);
@@ -153,14 +173,17 @@ a:hover {
   align-items: center;
   min-height: 40px;
   padding: 4px 2px;
-  transition-property: color, background-color;
+  transition-property: color;
   transition-duration: 160ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .sitenav a:hover,
 .sitenav a[aria-current="page"] {
-  color: var(--accent-hi);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--ink);
+  text-underline-offset: 6px;
 }
 
 .provider-note {
@@ -183,11 +206,10 @@ a:hover {
 }
 
 .display {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 400;
-  line-height: 0.95;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
   margin: 0;
 }
 
@@ -215,33 +237,37 @@ h3,
 .lede {
   font-size: 19px;
   color: var(--muted);
-  max-width: 34ch;
+  max-width: 36ch;
 }
 
-/* Buttons: one loud Meta-blue primary, one quiet ghost. Labels are set in
-   the body serif — mono is reserved for data and state, not controls. */
+/* Buttons: one quiet ink primary, one hairline secondary. Labels are set
+   in the body serif — mono is reserved for data and state, not controls. */
 .btn {
   font-family: var(--font-body), Georgia, serif;
   font-weight: 600;
   font-size: 16px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   padding: 12px 20px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
-  background: var(--ink-2);
-  color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
   cursor: pointer;
-  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-property: transform, background-color, border-color, color;
   transition-duration: 160ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
+.btn:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
 .btn:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .btn:disabled {
@@ -250,28 +276,46 @@ h3,
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent-deep);
-  color: var(--accent-ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
   font-weight: 600;
-  box-shadow: var(--shadow);
 }
 
-.btn-primary:hover {
-  background: var(--accent-hi);
-  color: var(--accent-ink);
+.btn-primary:hover:not(:disabled) {
+  background: #26262b;
+  border-color: #26262b;
+  color: var(--paper);
 }
 
 .btn + .btn {
   margin-left: var(--space-2);
 }
 
-/* Cards: flat navy slabs with a 1px ice line. Elevation is declared once —
-   the shadow system is reserved for the moments that float (hero card,
-   coach CTA, badge, viewfinder). */
-.card {
-  background: var(--ink-2);
+.kbd {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
   border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 1px 6px;
+  color: var(--muted);
+  background: var(--paper-2);
+  white-space: nowrap;
+}
+
+/* Cards: paper slabs with a hairline. Elevation is reserved for the
+   moments that float: the drop zone on drag-over, the badge. */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.card-flat {
+  background: var(--paper-2);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
 }
@@ -281,7 +325,7 @@ h3,
   font-family: var(--font-body), Georgia, serif;
   font-weight: 600;
   font-size: 15px;
-  color: var(--paper);
+  color: var(--ink);
   margin-bottom: var(--space-2);
 }
 
@@ -289,22 +333,23 @@ h3,
 .field input:not([type]) {
   width: 100%;
   padding: 12px 14px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-body), Georgia, serif;
   font-size: 17px;
 }
 
-.field input[type="file"] {
-  color: var(--muted);
-  font-size: 14px;
+.field input::placeholder {
+  color: var(--faint);
+  opacity: 1;
 }
 
-.field input::placeholder {
+.field-hint {
+  font-size: 14px;
   color: var(--muted);
-  opacity: 1;
+  margin: var(--space-2) 0 0;
 }
 
 .error {
@@ -324,7 +369,128 @@ h3,
   color: var(--muted);
 }
 
-/* Home: asymmetric hero. */
+/* Upload drop zone: the expert clip deserves a real landing surface, not
+   a bare file row. Idle is a hairline dashed well; drag-over lifts with
+   the one elevation plus an accent edge; a chosen clip becomes a file
+   chip with size and a remove control. */
+.dropzone {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  padding: var(--space-4);
+  text-align: center;
+  cursor: pointer;
+  transition-property: border-color, background-color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dropzone:hover {
+  border-color: var(--faint);
+}
+
+.dropzone.is-over {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.dropzone:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dropzone-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+}
+
+.dropzone-title {
+  font-weight: 600;
+  font-size: 16px;
+  margin: 0 0 var(--space-1);
+}
+
+.dropzone-sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.dropzone-sub button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.file-chip .file-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-chip .file-name {
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-chip .file-size {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
+.file-remove {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
+  border-radius: var(--radius-sm);
+  min-height: 40px;
+  min-width: 40px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition-property: border-color;
+  transition-duration: 160ms;
+}
+
+.file-remove:hover {
+  border-color: var(--ink);
+}
+
+/* Home: asymmetric hero, editorial headline. */
 .hero {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
@@ -334,16 +500,18 @@ h3,
 }
 
 .hero-title {
-  font-size: clamp(56px, 9vw, 96px);
+  font-size: clamp(46px, 7vw, 84px);
 }
 
-.hero-title .accent-line {
-  color: var(--accent);
+.hero-rule {
+  width: 56px;
+  border: 0;
+  border-top: 2px solid var(--ink);
+  margin: var(--space-4) 0 0;
 }
 
 .hero-card {
   margin-top: var(--space-6);
-  box-shadow: var(--shadow);
 }
 
 @media (min-width: 900px) {
@@ -358,7 +526,7 @@ h3,
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
 }
 
 .session-row:first-of-type {
@@ -375,7 +543,7 @@ h3,
 }
 
 .session-name a:hover {
-  color: var(--accent-hi);
+  text-decoration: underline;
 }
 
 .session-meta {
@@ -395,6 +563,12 @@ h3,
   display: inline-flex;
   align-items: center;
   min-height: 40px;
+  text-decoration: none;
+  color: var(--ink-2);
+}
+
+.go-link:hover {
+  color: var(--accent-deep);
 }
 
 .finder-results {
@@ -404,10 +578,11 @@ h3,
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
+  background: var(--paper);
 }
 
 .finder-results li {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
 }
 
 .finder-results li:first-child {
@@ -423,7 +598,7 @@ h3,
   min-height: 44px;
   text-decoration: none;
   font-size: 16px;
-  transition-property: background-color, color;
+  transition-property: background-color;
   transition-duration: 160ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -433,8 +608,7 @@ h3,
 }
 
 .finder-results a:hover {
-  background: var(--ink-3);
-  color: var(--paper);
+  background: var(--paper-2);
 }
 
 .finder-empty {
@@ -458,10 +632,9 @@ h3,
 }
 
 .clip-frame {
-  background: #000;
+  background: #101012;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-accent);
   overflow: hidden;
 }
 
@@ -469,7 +642,7 @@ h3,
   display: block;
   width: 100%;
   max-height: 440px;
-  background: #000;
+  background: #101012;
 }
 
 .step-rail {
@@ -480,32 +653,30 @@ h3,
 
 .step {
   position: relative;
-  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  background: var(--ink-2);
+  background: var(--paper);
   margin-bottom: var(--space-4);
 }
 
 .step-num {
   position: absolute;
-  left: -22px;
-  top: -26px;
-  font-family: var(--font-display), sans-serif;
+  left: -14px;
+  top: -30px;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 500;
   font-size: 64px;
   line-height: 1;
-  color: var(--ink);
-  -webkit-text-stroke: 2px var(--accent);
-  text-stroke: 2px var(--accent);
+  color: #e7e7ea;
 }
 
 .step.done {
-  border-color: var(--good);
+  border-color: var(--accent);
 }
 
 .step.done .step-num {
-  -webkit-text-stroke-color: var(--good);
-  text-stroke-color: var(--good);
+  color: var(--accent-wash);
 }
 
 .step h3 {
@@ -557,24 +728,23 @@ h3,
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  color: var(--paper);
   border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-4);
-  box-shadow: var(--shadow);
   margin: 0 0 var(--space-5);
   text-decoration: none;
 }
 
 .coach-cta {
-  transition-property: background-color, color, transform;
+  transition-property: background-color, transform;
   transition-duration: 160ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .coach-cta:hover {
-  color: var(--accent-ink);
-  background: var(--accent-hi);
+  color: var(--paper);
+  background: #26262b;
 }
 
 .coach-cta:active {
@@ -582,17 +752,21 @@ h3,
 }
 
 .coach-cta strong {
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), Georgia, serif;
   font-size: 24px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  font-weight: 400;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   display: block;
 }
 
 .coach-cta span {
   font-size: 15px;
   display: block;
+  color: #c9c9cf;
+}
+
+.coach-cta .go-link {
+  color: var(--paper);
 }
 
 /* Coach: camera-forward viewfinder. */
@@ -611,11 +785,10 @@ h3,
 
 .viewfinder {
   position: relative;
-  background: #000;
+  background: #101012;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow);
 }
 
 .viewfinder video {
@@ -623,14 +796,14 @@ h3,
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  background: #000;
+  background: #101012;
 }
 
 .viewfinder .corner {
   position: absolute;
   width: 22px;
   height: 22px;
-  border: 3px solid var(--accent);
+  border: 2px solid rgba(255, 255, 255, 0.85);
 }
 
 .corner-tl {
@@ -674,6 +847,7 @@ h3,
   border-radius: 999px;
   border: 1px solid var(--line);
   color: var(--muted);
+  background: var(--paper);
 }
 
 .status-pill .dot {
@@ -684,31 +858,24 @@ h3,
 }
 
 .status-live {
-  border-color: var(--good);
-  color: var(--good);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  background: var(--accent-wash);
 }
 
 .status-live .dot {
-  background: var(--good);
+  background: var(--accent);
   animation: pulse 1.6s ease-in-out infinite;
 }
 
 .status-retry {
   border-color: var(--warn);
   color: var(--warn);
+  background: var(--warn-wash);
 }
 
 .status-retry .dot {
   background: var(--warn);
-}
-
-.status-fallback {
-  border-color: var(--accent);
-  color: var(--accent-hi);
-}
-
-.status-fallback .dot {
-  background: var(--accent);
 }
 
 @keyframes pulse {
@@ -732,7 +899,7 @@ h3,
   flex: 1;
   height: 10px;
   border-radius: 3px;
-  background: var(--ink-3);
+  background: var(--paper-2);
   border: 1px solid var(--line);
 }
 
@@ -773,21 +940,37 @@ h3,
 .badge {
   text-align: center;
   padding: var(--space-6) var(--space-4);
-  border: 2px solid var(--good);
+  border: 1px solid var(--ink);
   border-radius: var(--radius-lg);
-  background: var(--ink-2);
+  background: var(--paper);
   box-shadow: var(--shadow);
   animation: badge-in 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
 }
 
 .badge h2 {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 400;
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 500;
   font-size: clamp(40px, 7vw, 72px);
-  text-transform: uppercase;
-  line-height: 0.95;
+  letter-spacing: -0.015em;
+  line-height: 1;
   margin: 0 0 var(--space-2);
-  color: var(--good);
+  color: var(--ink);
+}
+
+.badge .badge-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 6px 14px;
+  margin-bottom: var(--space-3);
 }
 
 @keyframes badge-in {
@@ -810,6 +993,7 @@ h3,
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  background: var(--paper);
 }
 
 .stat-list li {
@@ -818,7 +1002,7 @@ h3,
   justify-content: space-between;
   gap: var(--space-3);
   padding: 12px var(--space-3);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
 }
 
 .stat-list li:first-child {
@@ -826,10 +1010,10 @@ h3,
 }
 
 .stat-list .stat-value {
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), Georgia, serif;
   font-size: 28px;
   line-height: 1;
-  color: var(--paper);
+  color: var(--ink);
 }
 
 .stat-list .stat-label {
@@ -844,6 +1028,7 @@ h3,
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
+  background: var(--paper);
 }
 
 .tier-rail span {
@@ -855,7 +1040,7 @@ h3,
   text-transform: uppercase;
   padding: 10px 4px;
   color: var(--faint);
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--line-soft);
 }
 
 .tier-rail span:first-child {
@@ -863,15 +1048,16 @@ h3,
 }
 
 .tier-rail span.hit {
-  background: var(--accent-deep);
-  color: #fff;
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .tier-rail span.next {
-  color: var(--accent-hi);
+  color: var(--accent-deep);
 }
 
-/* Badge medallions: solid tier metal, ice ring when earned, dimmed locked. */
+/* Badge medallions: quiet ink coins when earned, dimmed when locked;
+   only the Master's Mark keeps a muted gold. */
 .badge-shelf {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -885,7 +1071,7 @@ h3,
 }
 
 .medallion {
-  background: var(--ink-2);
+  background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
@@ -900,27 +1086,27 @@ h3,
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), Georgia, serif;
   font-size: 26px;
-  color: var(--accent-ink);
-  background: var(--accent);
-  border: 3px solid var(--accent-hi);
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
 }
 
 .medallion.locked {
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 .medallion.locked .coin {
-  background: var(--ink-3);
-  border-color: var(--faint);
+  background: var(--paper-2);
+  border-color: var(--line);
   color: var(--faint);
 }
 
 .medallion.gold .coin {
-  background: var(--gold);
-  border-color: #ffe1a1;
-  color: #3a2a05;
+  background: var(--gold-coin);
+  border-color: var(--gold-line);
+  color: var(--gold-ink);
 }
 
 .medallion h3 {
@@ -938,7 +1124,7 @@ h3,
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: var(--accent-hi);
+  color: var(--accent-deep);
   text-transform: uppercase;
 }
 
@@ -953,13 +1139,13 @@ h3,
   width: 11px;
   height: 11px;
   transform: rotate(45deg);
-  background: var(--ink-3);
+  background: var(--paper-2);
   border: 1px solid var(--line);
 }
 
 .pips i.on {
-  background: var(--accent);
-  border-color: var(--accent-hi);
+  background: var(--ink);
+  border-color: var(--ink);
 }
 
 .activity-list {
@@ -970,7 +1156,7 @@ h3,
 
 .activity-list li {
   padding: var(--space-2) 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-soft);
   font-size: 15px;
   color: var(--muted);
 }
@@ -980,7 +1166,7 @@ h3,
 }
 
 .activity-list b {
-  color: var(--paper);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -993,6 +1179,233 @@ h3,
 .name-row input {
   flex: 1;
   min-width: 0;
+}
+
+/* Desktop shell: sidebar rail plus content stage. The web build never
+   renders these; the Electron renderer switches to them when the preload
+   bridge marks the document. The title strip is the window drag region;
+   every control inside it opts back out. */
+.desk {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.rail {
+  border-right: 1px solid var(--line);
+  background: var(--paper-2);
+  padding: 0 0 var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.rail-head {
+  padding: 40px var(--space-3) 0;
+  -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rail-head .wordmark {
+  font-size: 20px;
+  min-height: 0;
+  -webkit-app-region: no-drag;
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-2);
+}
+
+.rail-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 12px;
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition-property: background-color, color, border-color;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.rail-nav a:hover {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.rail-nav a[aria-current="page"] {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.rail-nav .kbd {
+  margin-left: auto;
+}
+
+.rail-foot {
+  margin-top: auto;
+  padding: 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.conn-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.conn-line .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.conn-line.is-off .dot {
+  background: var(--warn);
+}
+
+.stage {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.dtitle {
+  height: 40px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper);
+  -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dtitle-doc {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+
+.stage-body {
+  padding: var(--space-4) var(--space-5) var(--space-7);
+  max-width: 1020px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Offline shell: a quiet persistent banner, not a dead page. Learned
+   skills and the coach stay available on this machine; only the web
+   lookup needs a connection. */
+.offline-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--warn);
+  background: var(--warn-wash);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 15px;
+  margin-bottom: var(--space-4);
+}
+
+.offline-bar .dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+/* Voice search: mic control beside the typed field. The typed input
+   always stays — the mic only fills it. The row never overflows narrow
+   screens: the input shrinks, the mic keeps its 44px target. */
+.voice-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.voice-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The wrap vanishes from layout so the mic sits beside the input while
+   its status line drops full-width below — both stay inside the row. */
+.voice-wrap {
+  display: contents;
+}
+
+.mic-btn {
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 12px 14px;
+  white-space: nowrap;
+}
+
+.mic-btn svg {
+  flex: 0 0 auto;
+}
+
+.mic-btn[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.mic-btn:disabled {
+  cursor: not-allowed;
+}
+
+.voice-status {
+  flex: 1 1 100%;
+  font-size: 14px;
+  color: var(--muted);
+  min-height: 20px;
+  margin: 0;
+}
+
+.voice-status:empty {
+  display: none;
+}
+
+.voice-status.voice-error {
+  color: var(--bad);
+}
+
+/* Coach voice toggle: pressed means silenced. */
+.mute-btn[aria-pressed="true"] {
+  border-color: var(--ink);
 }
 
 /* Staggered enter: rails reveal chunk by chunk, exits stay soft (small
@@ -1041,6 +1454,12 @@ h3,
   }
 }
 
+@media (max-width: 900px) {
+  html.is-desktop .desk {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .hero {
     grid-template-columns: 1fr;
@@ -1066,8 +1485,8 @@ h3,
 
   .step-num {
     font-size: 48px;
-    left: -12px;
-    top: -20px;
+    left: -8px;
+    top: -24px;
   }
 
   .tier-rail {
@@ -1077,6 +1496,30 @@ h3,
   .tier-rail span {
     flex: 1 0 auto;
     min-width: 96px;
+  }
+
+  html.is-desktop .desk {
+    grid-template-columns: 1fr;
+  }
+
+  html.is-desktop .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  html.is-desktop .rail-head {
+    padding-top: var(--space-3);
+  }
+
+  html.is-desktop .rail-nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  html.is-desktop .rail-foot {
+    display: none;
   }
 }
 
@@ -1089,71 +1532,6 @@ h3,
   .name-row .btn {
     width: 100%;
   }
-}
-
-/* Voice search: mic control beside the typed field. The typed input
-   always stays — the mic only fills it. Listening borrows the signal
-   blue; errors read as errors. The row never overflows narrow screens:
-   the input shrinks, the mic keeps its 44px target. */
-.voice-row {
-  display: flex;
-  gap: var(--space-2);
-  align-items: stretch;
-  flex-wrap: wrap;
-}
-
-.voice-row input {
-  flex: 1;
-  min-width: 0;
-}
-
-/* The wrap vanishes from layout so the mic sits beside the input while
-   its status line drops full-width below — both stay inside the row. */
-.voice-wrap {
-  display: contents;
-}
-
-.mic-btn {
-  flex: 0 0 auto;
-  gap: 6px;
-  padding: 12px 14px;
-  white-space: nowrap;
-}
-
-.mic-btn svg {
-  flex: 0 0 auto;
-}
-
-.mic-btn[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent-deep);
-  color: var(--accent-ink);
-}
-
-.mic-btn:disabled {
-  cursor: not-allowed;
-}
-
-.voice-status {
-  flex: 1 1 100%;
-  font-size: 14px;
-  color: var(--muted);
-  min-height: 20px;
-  margin: 0;
-}
-
-.voice-status:empty {
-  display: none;
-}
-
-.voice-status.voice-error {
-  color: var(--bad);
-}
-
-/* Coach voice toggle: pressed means silenced. */
-.mute-btn[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent-hi);
 }
 
 /* Reduced motion: the badge appears instantly, the live dot stays solid. */
