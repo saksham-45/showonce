@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - "fm/showonce-electron-a1"
+      - "fm/showonce-voice-a1"
+      - "fm/showonce-desktop-a1"
       - main
   pull_request:
     branches:
       - "fm/showonce-polish-a1"
+      - "fm/showonce-voice-a1"
       - main
 
 jobs:

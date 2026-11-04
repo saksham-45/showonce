@@ -11,6 +11,7 @@ directories:
 files:
   - electron/main.js
   - electron/preload.js
+  - electron/loading.html
   - package.json
 # The staged standalone server (JS trace plus the copied public/ and
 # .next/static from `npm run build`) lands beside the app as

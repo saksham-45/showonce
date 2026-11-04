@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import ClipDropzone from "./components/ClipDropzone";
 import SkillFinder from "./components/SkillFinder";
 import WebLookup from "./components/WebLookup";
 
@@ -31,7 +32,7 @@ export default function HomePage() {
   async function upload(event: React.FormEvent) {
     event.preventDefault();
     if (!file) {
-      setError("Choose a clip file first.");
+      setError("Choose a clip file first — drop one onto the well or browse for it.");
       return;
     }
     setBusy(true);
@@ -56,11 +57,12 @@ export default function HomePage() {
       <section className="hero">
         <div>
           <h1 className="display hero-title">
-            Show it
+            Show it once.
             <br />
-            <span className="accent-line">once.</span>
+            Learn it for good.
           </h1>
-          <p className="lede">
+          <hr className="hero-rule" />
+          <p className="lede" style={{ marginTop: 16 }}>
             Record a 60-second clip of an expert doing a physical task. ShowOnce studies it into
             steps, then watches you back over the camera with spoken corrections until every step
             checks off.
@@ -84,19 +86,15 @@ export default function HomePage() {
               />
             </div>
             <div className="field" style={{ marginBottom: 12 }}>
-              <label htmlFor="skill-clip">Expert clip · short video, 60s target</label>
-              <input
-                id="skill-clip"
-                type="file"
-                accept="video/*"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              <label htmlFor="skill-clip">Expert clip</label>
+              <ClipDropzone
+                file={file}
+                onPick={setFile}
+                onClear={() => setFile(null)}
+                externalError={error}
+                disabled={busy}
               />
             </div>
-            {error ? (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            ) : null}
             <button type="submit" disabled={busy} className="btn btn-primary">
               {busy ? "Uploading…" : "Upload clip"}
             </button>

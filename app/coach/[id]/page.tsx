@@ -10,6 +10,7 @@ import {
   saveProfile,
   startSession,
 } from "@/lib/progress";
+import { notifyDesktop, primeDesktopNotifications } from "../../components/desktop";
 import type { SkillGraph } from "@/lib/skillgraph";
 import SkillFinder from "../../components/SkillFinder";
 
@@ -186,6 +187,15 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       saveProfile(profile);
       setEarned(event.earned);
       speak(`Skill complete. You finished ${graph.title}. Badge earned.`, mutedRef.current);
+      // A finished circuit is a coaching event worth a native notice: the
+      // desktop shell raises it through the OS, browsers stay quiet.
+      const badgeNames = event.earned
+        .map((bid) => BADGES.find((b) => b.id === bid)?.name ?? bid)
+        .join(", ");
+      notifyDesktop(
+        `Skill locked in — ${graph.title}`,
+        badgeNames ? `Badge earned: ${badgeNames}.` : `${graph.steps.length} checkpoints passed.`,
+      ).catch(() => {});
     }
     if (!complete) recordedRef.current = false;
   }, [complete, graph]);
@@ -259,6 +269,14 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
           saveProfile(profile);
           setDoneSteps((prev) => (prev.includes(step.id) ? prev : [...prev, step.id]));
           const next = currentRef.current + 1;
+          // Step passes only interrupt with a native notice when the coach
+          // tab is in the background — foreground learners already see it.
+          if (typeof document !== "undefined" && document.hidden) {
+            notifyDesktop(
+              `Step passed — ${active.title}`,
+              `Checkpoint ${next} of ${active.steps.length}: ${step.instruction}`,
+            ).catch(() => {});
+          }
           setCurrent(next);
           if (next >= active.steps.length) {
             setCoaching(false);
@@ -313,6 +331,9 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       startSession(profile, id);
       saveProfile(profile);
       setCoaching(true);
+      // Starting is the gesture that may prime native notices, so later
+      // completion and background step events are allowed to appear.
+      primeDesktopNotifications().catch(() => {});
     } catch (err) {
       setCameraError(
         err instanceof DOMException && err.name === "NotAllowedError"
@@ -367,6 +388,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         </p>
       ) : complete ? (
         <section className="badge" aria-live="polite">
+          <span className="badge-mark">Circuit complete</span>
           <h2>Skill locked in</h2>
           <p style={{ margin: "0 0 8px" }}>
             You completed every step of <strong>{graph.title}</strong>.
@@ -510,7 +532,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
                     aria-current={isCurrent ? "step" : undefined}
                     style={{
                       fontWeight: isCurrent ? 700 : 400,
-                      color: done ? "var(--good)" : "var(--paper)",
+                      color: done ? "var(--good)" : "var(--ink)",
                       marginBottom: 4,
                     }}
                   >
