@@ -1543,6 +1543,306 @@ form > .btn {
   }
 }
 
+/* Home fit-to-viewport: the home page owns exactly one screen, never a
+   page scrollbar. Two fluid columns share 100dvh; type and spacing compress
+   with clamp() so small windows tighten gracefully and large windows breathe.
+   Only the lookup-results and sessions lists may scroll internally, and only
+   when their content physically exceeds their cell. Other pages are untouched:
+   every lock below is scoped behind :has(.home-fit). */
+.site:has(.home-fit) {
+  height: 100vh;
+  height: 100dvh;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  margin: 0;
+  padding: clamp(10px, 2.2vh, 24px) clamp(12px, 3vw, 32px);
+}
+
+.site:has(.home-fit) .topbar {
+  flex: 0 0 auto;
+  padding-bottom: clamp(8px, 1.4vh, 16px);
+  margin-bottom: clamp(8px, 1.6vh, 20px);
+}
+
+.site:has(.home-fit) > #content {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+
+html.is-desktop .desk:has(.home-fit) {
+  height: 100vh;
+  height: 100dvh;
+  overflow: clip;
+}
+
+html.is-desktop .stage:has(.home-fit) {
+  min-height: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: clip;
+}
+
+html.is-desktop .stage-body:has(.home-fit) {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  overflow: clip;
+  padding: clamp(10px, 2.2vh, 24px) clamp(12px, 3vw, 32px);
+}
+
+.home-fit {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+  gap: clamp(10px, 2vh, 22px) clamp(14px, 2.6vw, 32px);
+}
+
+.home-col {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2vh, 22px);
+  min-height: 0;
+  min-width: 0;
+}
+
+.home-intro {
+  flex: 0 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.home-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-sessions {
+  flex: 1 1 0;
+}
+
+.home-title {
+  font-size: clamp(30px, 4.4vh + 2vw, 64px);
+}
+
+.home-fit .hero-rule {
+  margin: clamp(8px, 1.6vh, 20px) 0 0;
+}
+
+.home-lede {
+  font-size: clamp(14px, 1.5vh + 0.45vw, 19px);
+  line-height: 1.45;
+  max-width: 42ch;
+  margin: clamp(8px, 1.6vh, 16px) 0 0;
+}
+
+.home-lede-tight {
+  margin-bottom: clamp(6px, 1.2vh, 12px);
+}
+
+.home-fit .meta-line {
+  margin-top: clamp(6px, 1.2vh, 12px);
+}
+
+.home-h {
+  font-size: clamp(20px, 2vh + 0.8vw, 30px);
+  margin: 0 0 clamp(4px, 1vh, 12px);
+  flex: 0 0 auto;
+}
+
+.home-card {
+  padding: clamp(12px, 2vh, 24px);
+  min-width: 0;
+}
+
+.home-create {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: clip;
+}
+
+.home-scroll-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+}
+
+.home-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+}
+
+.home-form {
+  min-width: 0;
+}
+
+.home-fit .home-field {
+  margin-bottom: clamp(6px, 1.2vh, 12px);
+}
+
+.home-fit .field input[type="text"],
+.home-fit .field input:not([type]) {
+  padding: clamp(8px, 1.4vh, 12px) clamp(10px, 1vw, 14px);
+  font-size: clamp(15px, 1.4vh + 0.4vw, 17px);
+}
+
+.home-fit .dropzone {
+  padding: clamp(8px, 1.6vh, 16px);
+}
+
+.home-fit .dropzone-icon {
+  width: clamp(28px, 4.6vh, 44px);
+  height: clamp(28px, 4.6vh, 44px);
+  margin-bottom: 4px;
+}
+
+.home-fit .dropzone-title {
+  font-size: clamp(14px, 1.4vh + 0.4vw, 16px);
+}
+
+.home-fit .dropzone-sub {
+  font-size: clamp(12px, 1.2vh + 0.35vw, 14px);
+}
+
+.home-fit .btn {
+  min-height: 40px;
+  padding: clamp(8px, 1.2vh, 12px) 20px;
+  font-size: clamp(14px, 1.4vh + 0.4vw, 16px);
+}
+
+.home-fit form > .btn {
+  margin-top: clamp(8px, 1.4vh, 16px);
+}
+
+.home-finder {
+  margin-top: clamp(8px, 1.6vh, 16px);
+  min-height: 0;
+}
+
+.home-fit .finder-results a {
+  padding: clamp(6px, 1vh, 10px) 14px;
+  min-height: 40px;
+}
+
+.home-fit .session-row {
+  padding: clamp(6px, 1vh, 12px) 0;
+}
+
+.home-fit .session-name {
+  font-size: clamp(15px, 1.5vh + 0.4vw, 18px);
+}
+
+/* Short viewports: tighten further so CTAs stay on screen; the sessions
+   list (least important region) absorbs the remainder via its own scroll. */
+@media (max-height: 760px) {
+  .home-fit {
+    gap: 10px 16px;
+  }
+
+  .home-col {
+    gap: 10px;
+  }
+
+  .home-fit .hero-rule {
+    margin-top: 8px;
+  }
+
+  .home-fit .card {
+    border-radius: var(--radius);
+  }
+
+  .home-fit .finder-empty {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .home-fit .voice-status {
+    min-height: 0;
+  }
+}
+
+/* Narrow windows: the one-screen lock is a desktop composition. At phone
+   widths the page returns to normal stacked scrolling flow so every section
+   keeps its natural height — a crushed lock would clip forms. Stack order
+   follows the columns: intro, lookup, create, sessions. */
+@media (max-width: 720px) {
+  .site:has(.home-fit) {
+    height: auto;
+    overflow: visible;
+    display: block;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: var(--space-4) var(--space-3) var(--space-7);
+  }
+
+  .site:has(.home-fit) > #content {
+    display: block;
+  }
+
+  html.is-desktop .desk:has(.home-fit) {
+    height: auto;
+    overflow: visible;
+  }
+
+  html.is-desktop .stage:has(.home-fit) {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  html.is-desktop .stage-body:has(.home-fit) {
+    display: block;
+    overflow: visible;
+    max-width: 1020px;
+    margin: 0 auto;
+  }
+
+  .home-fit {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .home-col {
+    gap: var(--space-5);
+  }
+
+  .home-fill,
+  .home-sessions {
+    flex: none;
+  }
+
+  .home-create,
+  .home-scroll-card {
+    overflow: visible;
+    flex: none;
+  }
+
+  .home-scroll {
+    overflow: visible;
+  }
+
+  .home-title {
+    font-size: clamp(26px, 8vw, 34px);
+  }
+}
+
 /* Reduced motion: the badge appears instantly, the live dot stays solid. */
 @media (prefers-reduced-motion: reduce) {
   .badge,

@@ -53,29 +53,42 @@ export default function HomePage() {
   }
 
   return (
-    <>
-      <section className="hero">
-        <div>
-          <h1 className="display hero-title">
+    <div className="home-fit">
+      <div className="home-col">
+        <section className="home-intro" aria-label="Introduction">
+          <h1 className="display home-title">
             Show it once.
             <br />
             Learn it for good.
           </h1>
           <hr className="hero-rule" />
-          <p className="lede" style={{ marginTop: 16 }}>
+          <p className="lede home-lede">
             Record a clip of an expert doing a physical task — any length. ShowOnce studies it into
             steps, then watches you back over the camera with spoken corrections until every step
             checks off.
           </p>
           <p className="meta-line">Meta Model API · indie track · one video in, a live coach out</p>
-        </div>
+        </section>
 
-        <div className="card hero-card">
-          <h2 className="display" style={{ fontSize: 26, marginBottom: 16 }}>
-            New skill
-          </h2>
-          <form onSubmit={upload}>
-            <div className="field" style={{ marginBottom: 12 }}>
+        <section className="home-fill" aria-label="Learn from the web">
+          <h2 className="display home-h">No clip? Learn from the web</h2>
+          <p className="lede home-lede home-lede-tight">
+            Type or speak a skill: ShowOnce searches for videos to watch and written guides to read,
+            distills them into steps with cited sources, and coaches you through them.
+          </p>
+          <div className="card home-card home-scroll-card">
+            <div className="home-scroll">
+              <WebLookup />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div className="home-col">
+        <section className="card home-card home-create" aria-label="New skill">
+          <h2 className="display home-h">New skill</h2>
+          <form onSubmit={upload} className="home-form">
+            <div className="field home-field">
               <label htmlFor="skill-title">Skill title</label>
               <input
                 id="skill-title"
@@ -85,7 +98,7 @@ export default function HomePage() {
                 placeholder="Fold a paper airplane"
               />
             </div>
-            <div className="field" style={{ marginBottom: 12 }}>
+            <div className="field home-field">
               <label htmlFor="skill-clip">Expert clip</label>
               <ClipDropzone
                 file={file}
@@ -99,51 +112,38 @@ export default function HomePage() {
               {busy ? "Uploading…" : "Upload clip"}
             </button>
           </form>
-          <div style={{ marginTop: 24 }}>
+          <div className="home-finder">
             <SkillFinder />
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section aria-label="Learn from the web">
-        <h2 className="display" style={{ fontSize: 30, marginBottom: 8 }}>
-          No clip? Learn from the web
-        </h2>
-        <p className="lede" style={{ marginBottom: 16 }}>
-          Type or speak a skill: ShowOnce searches for videos to watch and written guides to read,
-          distills them into steps with cited sources, and coaches you through them.
-        </p>
-        <div className="card">
-          <WebLookup />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="display" style={{ fontSize: 30, marginBottom: 16 }}>
-          Sessions on record
-        </h2>
-        {loading ? (
-          <p className="lede">Loading sessions…</p>
-        ) : skills.length === 0 ? (
-          <p className="lede">No skills yet. Upload a clip above.</p>
-        ) : (
-          <div className="card">
-            {skills.map((skill) => (
-              <div className="session-row" key={skill.skillId}>
-                <div>
-                  <p className="session-name">
-                    <Link href={`/skills/${skill.skillId}`}>{skill.title}</Link>
-                  </p>
-                  <p className="session-meta">skill · {skill.skillId.slice(0, 8)}</p>
-                </div>
-                <Link className="go-link" href={`/coach/${skill.skillId}`}>
-                  Coach →
-                </Link>
-              </div>
-            ))}
+        <section className="home-fill home-sessions" aria-label="Sessions on record">
+          <h2 className="display home-h">Sessions on record</h2>
+          <div className="card home-card home-scroll-card">
+            <div className="home-scroll">
+              {loading ? (
+                <p className="lede home-lede">Loading sessions…</p>
+              ) : skills.length === 0 ? (
+                <p className="lede home-lede">No skills yet. Upload a clip above.</p>
+              ) : (
+                skills.map((skill) => (
+                  <div className="session-row" key={skill.skillId}>
+                    <div>
+                      <p className="session-name">
+                        <Link href={`/skills/${skill.skillId}`}>{skill.title}</Link>
+                      </p>
+                      <p className="session-meta">skill · {skill.skillId.slice(0, 8)}</p>
+                    </div>
+                    <Link className="go-link" href={`/coach/${skill.skillId}`}>
+                      Coach →
+                    </Link>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-        )}
-      </section>
-    </>
+        </section>
+      </div>
+    </div>
   );
 }
