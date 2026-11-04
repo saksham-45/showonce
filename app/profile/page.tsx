@@ -18,6 +18,7 @@ import {
 } from "@/lib/progress";
 import Medallion from "../components/Medallion";
 import Rating from "../components/Rating";
+import UsagePanel from "../components/UsagePanel";
 
 function nextStep(profile: LearnerProfile): string {
   const skills = Object.values(profile.skills);
@@ -185,6 +186,21 @@ export default function ProfilePage() {
           ))}
         </div>
       )}
+
+      <h2 className="display" style={{ fontSize: 30, marginBottom: 12, marginTop: 32 }}>
+        Settings
+      </h2>
+      <ul className="stat-list">
+        <li>
+          <span className="stat-label">API usage</span>
+          <span className="stat-value">since boot</span>
+        </li>
+      </ul>
+      <p className="session-meta" style={{ marginBottom: 12 }}>
+        Every Meta model call this server has made since boot, and the cache hits that avoided
+        one.
+      </p>
+      <UsagePanel />
     </>
   );
 }
