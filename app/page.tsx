@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import ClipDropzone from "./components/ClipDropzone";
 import SkillFinder from "./components/SkillFinder";
-import UsagePanel from "./components/UsagePanel";
 import WebLookup from "./components/WebLookup";
 
 interface SkillEntry {
@@ -116,19 +115,6 @@ export default function HomePage() {
         </p>
         <div className="card">
           <WebLookup />
-        </div>
-      </section>
-
-      <section aria-label="API usage">
-        <h2 className="display" style={{ fontSize: 30, marginBottom: 8 }}>
-          API usage
-        </h2>
-        <p className="lede" style={{ marginBottom: 16 }}>
-          Every Meta model call this server has made since boot, and the cache hits that avoided
-          one — so test runs never blindside the key.
-        </p>
-        <div className="card">
-          <UsagePanel />
         </div>
       </section>
 
