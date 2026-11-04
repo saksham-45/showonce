@@ -292,6 +292,15 @@ h3,
   margin-left: var(--space-2);
 }
 
+/* A submit button stacked directly under its form's fields needs air for
+   the focused input's outline ring (2px + 2px offset): flush stacking lets
+   the button swallow the ring and read as sitting on the field. Direct
+   children only, so in-row buttons (profile name, coach controls) keep
+   their alignment. */
+form > .btn {
+  margin-top: var(--space-3);
+}
+
 .kbd {
   font-family: var(--font-mono), monospace;
   font-size: 12px;

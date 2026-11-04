@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { compareSkillFrame, compareSkillFramePhased } from "@/lib/coach";
+import { loadConfig } from "@/lib/config";
 import { isSkillGraph } from "@/lib/skillgraph";
 import { skillDir } from "@/lib/store";
 
@@ -72,12 +73,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     referenceBytes = null;
   }
 
+  const config = loadConfig();
   const input = {
     step,
     frameBytes: frameToBytes(body.frame),
     referenceBytes,
-    apiBase: process.env.META_API_BASE ?? "https://api.meta.ai/v1",
-    apiKey: process.env.META_API_KEY ?? null,
+    apiBase: config.apiBase,
+    apiKey: config.apiKey,
+    dedupMs: config.coachDedupMs,
   };
 
   if (request.headers.get("accept")?.includes("application/x-ndjson")) {

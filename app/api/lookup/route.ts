@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { ApiCapError, RunBudget } from "@/lib/apicache";
 import { loadConfig } from "@/lib/config";
+import { logRunLine, recordLookupRun, usageSnapshot } from "@/lib/usage";
 import { MetaLookupProvider, StubLookupProvider } from "@/lib/weblookup";
 
 // POST /api/lookup — search the net for one typed skill: videos to watch,
@@ -24,9 +26,21 @@ export async function POST(request: Request) {
   }
 
   const config = loadConfig();
+  recordLookupRun();
+  const before = usageSnapshot();
+  const runLine = (status: string) => {
+    const after = usageSnapshot();
+    logRunLine(
+      `lookup status=${status} ` +
+        `apiCalls=${after.apiCalls.total - before.apiCalls.total} ` +
+        `cacheHits=${after.cacheHits - before.cacheHits}`,
+    );
+  };
   try {
     if (config.provider === "stub") {
-      return NextResponse.json(await new StubLookupProvider().lookup(query));
+      const guide = await new StubLookupProvider().lookup(query);
+      runLine("ok-stub");
+      return NextResponse.json(guide);
     }
     if (!config.apiKey) {
       return NextResponse.json(
@@ -37,8 +51,19 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    return NextResponse.json(await new MetaLookupProvider(config.apiBase, config.apiKey).lookup(query));
+    const guide = await new MetaLookupProvider(
+      config.apiBase,
+      config.apiKey,
+      new RunBudget(config.apiCallCap),
+    ).lookup(query);
+    runLine("ok");
+    return NextResponse.json(guide);
   } catch (error) {
+    if (error instanceof ApiCapError) {
+      runLine("cap");
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
+    runLine("failed");
     const message = error instanceof Error ? error.message : "Web lookup failed.";
     return NextResponse.json({ error: message }, { status: 502 });
   }

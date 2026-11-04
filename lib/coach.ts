@@ -9,7 +9,9 @@
 // live loop — a timeout falls through to the stub verdict and the next
 // camera tick keeps moving.
 
+import { createHash } from "node:crypto";
 import type { SkillStep } from "./skillgraph";
+import { recordApiCall, recordCoachRequest } from "./usage";
 
 export type CoachVerdict = "correct" | "nudge" | "wrong";
 
@@ -27,6 +29,39 @@ export interface CoachCompareInput {
   referenceBytes: Buffer | null;
   apiBase: string;
   apiKey: string | null;
+  // Dedup window in ms: an identical step + frame judged inside it reuses
+  // the verdict with zero new calls. 0 disables. Defaults to 30 s.
+  dedupMs?: number;
+}
+
+// Verdict memo: step identity + frame content hash → recent result. Live
+// ticks repeat the same still for seconds at a time (and test runs repeat
+// it exactly), so without this every 2.5 s tick costs two model calls.
+// Bounded and TTL'd: entries expire, and the map is dropped wholesale past
+// its cap so a long session cannot grow it without bound.
+const verdictMemo = new Map<string, { at: number; result: CoachResult; via: "meta" | "stub" }>();
+const VERDICT_MEMO_CAP = 500;
+
+function memoKey(step: SkillStep, frameBytes: Buffer | null): string {
+  const hash = createHash("sha256");
+  hash.update(step.id);
+  hash.update(step.instruction);
+  hash.update(step.checkpoint);
+  if (frameBytes) hash.update(frameBytes);
+  else hash.update("no-frame");
+  return hash.digest("hex");
+}
+
+function memoGet(step: SkillStep, frameBytes: Buffer | null, dedupMs: number): { result: CoachResult; via: "meta" | "stub" } | null {
+  if (dedupMs <= 0) return null;
+  const entry = verdictMemo.get(memoKey(step, frameBytes));
+  if (!entry || Date.now() - entry.at > dedupMs) return null;
+  return { result: entry.result, via: entry.via };
+}
+
+function memoPut(step: SkillStep, frameBytes: Buffer | null, result: CoachResult, via: "meta" | "stub"): void {
+  if (verdictMemo.size >= VERDICT_MEMO_CAP) verdictMemo.clear();
+  verdictMemo.set(memoKey(step, frameBytes), { at: Date.now(), result, via });
 }
 
 // Progress phases the streaming coach route reports before the final
@@ -144,6 +179,7 @@ async function metaCompare(
   let regionsSummary = "unavailable";
   onPhase?.("segmenting");
   try {
+    recordApiCall("sam-3.1");
     regionsSummary = await segmentLiveFrame(apiBase, apiKey, frameBytes);
   } catch {
     regionsSummary = "unavailable";
@@ -179,6 +215,7 @@ async function metaCompare(
     "advance is true only when verdict is correct.",
   ].join(" ");
 
+  recordApiCall("muse-spark-1.3");
   const raw = await postChat(
     apiBase,
     apiKey,
@@ -202,12 +239,32 @@ async function metaCompare(
 
 // Entry point for the coach route: Meta path when a key is present, with a
 // stub fallback so one failed model call never freezes the live loop.
+// An identical step + frame inside the dedup window reuses the memoised
+// verdict with zero new calls; the memo holds both paths, so a repeated
+// still after a Meta failure repeats the stub verdict, not a retry storm.
 export async function compareSkillFrame(input: CoachCompareInput): Promise<CoachResult> {
-  if (!input.apiKey) return stubCompare(input.step, input.frameBytes);
+  const dedupMs = input.dedupMs ?? 30_000;
+  const memoised = memoGet(input.step, input.frameBytes, dedupMs);
+  if (memoised) {
+    recordCoachRequest("dedup");
+    return memoised.result;
+  }
+  if (!input.apiKey) {
+    const result = stubCompare(input.step, input.frameBytes);
+    if (dedupMs > 0) memoPut(input.step, input.frameBytes, result, "stub");
+    recordCoachRequest("stub");
+    return result;
+  }
   try {
-    return await metaCompare(input);
+    const result = await metaCompare(input);
+    if (dedupMs > 0) memoPut(input.step, input.frameBytes, result, "meta");
+    recordCoachRequest("meta");
+    return result;
   } catch {
-    return stubCompare(input.step, input.frameBytes);
+    const result = stubCompare(input.step, input.frameBytes);
+    if (dedupMs > 0) memoPut(input.step, input.frameBytes, result, "stub");
+    recordCoachRequest("stub");
+    return result;
   }
 }
 
@@ -224,10 +281,27 @@ export async function compareSkillFramePhased(
   input: CoachCompareInput,
   onPhase: (phase: CoachPhase) => void,
 ): Promise<PhasedCoachResult> {
-  if (!input.apiKey) return { ...stubCompare(input.step, input.frameBytes), via: "stub" };
+  const dedupMs = input.dedupMs ?? 30_000;
+  const memoised = memoGet(input.step, input.frameBytes, dedupMs);
+  if (memoised) {
+    recordCoachRequest("dedup");
+    return { ...memoised.result, via: memoised.via };
+  }
+  if (!input.apiKey) {
+    const result = stubCompare(input.step, input.frameBytes);
+    if (dedupMs > 0) memoPut(input.step, input.frameBytes, result, "stub");
+    recordCoachRequest("stub");
+    return { ...result, via: "stub" };
+  }
   try {
-    return { ...(await metaCompare(input, onPhase)), via: "meta" };
+    const result = await metaCompare(input, onPhase);
+    if (dedupMs > 0) memoPut(input.step, input.frameBytes, result, "meta");
+    recordCoachRequest("meta");
+    return { ...result, via: "meta" };
   } catch {
-    return { ...stubCompare(input.step, input.frameBytes), via: "stub" };
+    const result = stubCompare(input.step, input.frameBytes);
+    if (dedupMs > 0) memoPut(input.step, input.frameBytes, result, "stub");
+    recordCoachRequest("stub");
+    return { ...result, via: "stub" };
   }
 }

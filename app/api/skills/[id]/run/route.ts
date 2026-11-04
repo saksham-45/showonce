@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { ApiCapError } from "@/lib/apicache";
 import { runLearnPipeline } from "@/lib/pipeline";
 import { skillDir } from "@/lib/store";
 
@@ -19,6 +20,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const graph = await runLearnPipeline(id, title);
     return NextResponse.json(graph);
   } catch (error) {
+    // A tripped per-run call cap is a budgeting state, not a broken
+    // pipeline: answer 429 with the cap named so the UI shows what to do
+    // (raise the cap, or rerun — cache hits cost nothing).
+    if (error instanceof ApiCapError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     const message = error instanceof Error ? error.message : "Pipeline failed.";
     const clientError =
       message.includes("META_API_KEY") ||
