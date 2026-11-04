@@ -21,6 +21,7 @@
   --gold: #e8b93e;
   --radius: 12px;
   --radius-lg: 16px;
+  --radius-sm: 8px;
   /* One depth system: offset plus blur. Borders separate, shadows elevate. */
   --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
   --shadow-accent: 0 14px 34px rgba(0, 100, 224, 0.35);
@@ -44,6 +45,9 @@ html {
 body {
   margin: 0;
   color: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  text-wrap: pretty;
   /* Flat mission-control surface. Depth comes from borders and the one
      shadow system, not background effects. */
   background: var(--ink);
@@ -93,6 +97,35 @@ a:hover {
   letter-spacing: 0.04em;
   text-decoration: none;
   color: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+}
+
+/* Skip link: hidden until keyboard focus lands on it. */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -64px;
+  z-index: 100;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  padding: 10px 16px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition-property: top, background-color;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+  outline-offset: 2px;
 }
 
 .wordmark:hover {
@@ -116,6 +149,13 @@ a:hover {
 .sitenav a {
   color: var(--muted);
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px 2px;
+  transition-property: color, background-color;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .sitenav a:hover,
@@ -151,6 +191,27 @@ a:hover {
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+.display,
+.session-name,
+.medallion h3 {
+  text-wrap: balance;
+}
+
+/* Live numbers must not shift layout as they update. */
+.meta-line,
+.session-meta,
+.stat-list .stat-value,
+.status-pill,
+.verdict-tag,
+.tier-rail,
+.provider-note,
+.medallion .bonus {
+  font-variant-numeric: tabular-nums;
+}
+
 .lede {
   font-size: 19px;
   color: var(--muted);
@@ -165,11 +226,22 @@ a:hover {
   font-size: 16px;
   letter-spacing: 0.02em;
   padding: 12px 20px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: var(--ink-2);
   color: var(--paper);
   cursor: pointer;
+  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .btn:disabled {
@@ -320,6 +392,9 @@ a:hover {
   font-weight: 600;
   font-size: 15px;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
 }
 
 .finder-results {
@@ -341,11 +416,20 @@ a:hover {
 
 .finder-results a {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   padding: 10px 14px;
+  min-height: 44px;
   text-decoration: none;
   font-size: 16px;
+  transition-property: background-color, color;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.finder-results a .go-link {
+  min-height: 0;
 }
 
 .finder-results a:hover {
@@ -449,7 +533,7 @@ a:hover {
 .step-figures img {
   display: block;
   width: 100%;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
 }
 
@@ -482,9 +566,19 @@ a:hover {
   text-decoration: none;
 }
 
+.coach-cta {
+  transition-property: background-color, color, transform;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
 .coach-cta:hover {
   color: var(--accent-ink);
   background: var(--accent-hi);
+}
+
+.coach-cta:active {
+  transform: scale(0.99);
 }
 
 .coach-cta strong {
@@ -890,6 +984,63 @@ a:hover {
   font-weight: 600;
 }
 
+/* Profile name form: side-by-side on wide screens, stacked on narrow. */
+.name-row {
+  display: flex;
+  gap: 8px;
+}
+
+.name-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Staggered enter: rails reveal chunk by chunk, exits stay soft (small
+   fixed rise, never full height). Motion only — layout never depends on
+   the animation finishing. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .step-rail .step,
+  .badge-shelf .medallion {
+    animation: rise-in 0.5s cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  .step-rail .step:nth-child(2),
+  .badge-shelf .medallion:nth-child(2) {
+    animation-delay: 80ms;
+  }
+
+  .step-rail .step:nth-child(3),
+  .badge-shelf .medallion:nth-child(3) {
+    animation-delay: 160ms;
+  }
+
+  .step-rail .step:nth-child(4),
+  .badge-shelf .medallion:nth-child(4) {
+    animation-delay: 240ms;
+  }
+
+  .step-rail .step:nth-child(5),
+  .badge-shelf .medallion:nth-child(5) {
+    animation-delay: 320ms;
+  }
+
+  .step-rail .step:nth-child(n + 6),
+  .badge-shelf .medallion:nth-child(n + 6) {
+    animation-delay: 400ms;
+  }
+}
+
 @media (max-width: 640px) {
   .hero {
     grid-template-columns: 1fr;
@@ -908,11 +1059,43 @@ a:hover {
     padding-left: var(--space-3);
     padding-right: var(--space-3);
   }
+
+  .session-row {
+    flex-wrap: wrap;
+  }
+
+  .step-num {
+    font-size: 48px;
+    left: -12px;
+    top: -20px;
+  }
+
+  .tier-rail {
+    overflow-x: auto;
+  }
+
+  .tier-rail span {
+    flex: 1 0 auto;
+    min-width: 96px;
+  }
+}
+
+@media (max-width: 480px) {
+  .name-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .name-row .btn {
+    width: 100%;
+  }
 }
 
 /* Reduced motion: the badge appears instantly, the live dot stays solid. */
 @media (prefers-reduced-motion: reduce) {
-  .badge {
+  .badge,
+  .step-rail .step,
+  .badge-shelf .medallion {
     animation: none;
   }
 

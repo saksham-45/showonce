@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Anton, IBM_Plex_Mono, Newsreader } from "next/font/google";
+import SiteNav from "./components/SiteNav";
 import "./globals.css";
 
 // Type pairing (each family has a job, never a single identity):
@@ -19,18 +20,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body>
+        <a className="skip-link" href="#content">
+          Skip to content
+        </a>
         <main className="site">
           <header className="topbar">
             <a className="wordmark" href="/">
               SHOW<b>ONCE</b>
             </a>
-            <nav className="sitenav" aria-label="Sections">
-              <a href="/">Learn</a>
-              <a href="/skills">Library</a>
-              <a href="/profile">Profile</a>
-            </nav>
+            <SiteNav />
           </header>
-          {children}
+          <div id="content">{children}</div>
         </main>
       </body>
     </html>
