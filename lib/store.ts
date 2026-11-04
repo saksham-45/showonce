@@ -32,6 +32,23 @@ export async function createSkill(clipBytes: Buffer, title: string): Promise<str
   return skillId;
 }
 
+// A web-guide skill has no uploaded clip: same layout minus clip.mp4, so
+// the skill page (sources + steps) and the coach loop (checkpoint judging)
+// work from the distilled guide alone.
+export async function createGuideSkill(title: string): Promise<string> {
+  const skillId = newSkillId();
+  const dir = skillDir(skillId);
+  await fs.mkdir(path.join(dir, "frames"), { recursive: true });
+  await fs.mkdir(path.join(dir, "keyframes"), { recursive: true });
+  await fs.mkdir(path.join(dir, "masks"), { recursive: true });
+  await fs.mkdir(path.join(dir, "references"), { recursive: true });
+  await fs.writeFile(
+    path.join(dir, "meta.json"),
+    JSON.stringify({ skillId, title, createdAt: new Date().toISOString(), fromGuide: true }, null, 2),
+  );
+  return skillId;
+}
+
 export async function listSkills(): Promise<{ skillId: string; title: string }[]> {
   const root = dataRoot();
   let entries: string[] = [];

@@ -2,7 +2,7 @@
 # Coach-loop smoke: stub end-to-end proof of the compare endpoint and its
 # wiring to the Learn pipeline. Needs a server running with
 # SHOWNCE_PROVIDER=stub and a clip:
-#   SHOWNCE_PROVIDER=stub npm run start -- -p 3101 &
+#   PORT=3101 SHOWNCE_PROVIDER=stub npm run start &
 #   SHOWNCE_SMOKE_CLIP=path/to/clip.mp4 sh scripts/smoke-coach.sh http://localhost:3101
 set -eu
 

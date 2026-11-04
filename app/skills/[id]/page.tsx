@@ -4,9 +4,19 @@ import { use, useCallback, useEffect, useState } from "react";
 import { BADGES, loadProfile, recordLearn, saveProfile } from "@/lib/progress";
 import type { SkillGraph } from "@/lib/skillgraph";
 
+interface StoredGuide {
+  query: string;
+  summary: string;
+  videos: { title: string; url: string }[];
+  articles: { title: string; url: string; snippet?: string }[];
+  sources: { title: string; url: string }[];
+}
+
 export default function SkillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [graph, setGraph] = useState<SkillGraph | null>(null);
+  const [guide, setGuide] = useState<StoredGuide | null>(null);
+  const [clipMissing, setClipMissing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +27,10 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
       const res = await fetch(`/api/skills/${id}`);
       if (res.ok) {
         setGraph((await res.json()) as SkillGraph);
+      }
+      const guideRes = await fetch(`/api/skills/${id}/guide`);
+      if (guideRes.ok) {
+        setGuide((await guideRes.json()) as StoredGuide);
       }
     } finally {
       setLoaded(true);
@@ -73,7 +87,14 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
       <div className="skill-grid">
         <div>
           <div className="clip-frame">
-            <video src={`/skills/${id}/clip.mp4`} controls />
+            {clipMissing ? (
+              <p className="lede" role="status" style={{ padding: 16 }}>
+                No expert clip — this skill was learned from web sources, listed below. The steps
+                and the coach work from the distilled guide.
+              </p>
+            ) : (
+              <video src={`/skills/${id}/clip.mp4`} controls onError={() => setClipMissing(true)} />
+            )}
           </div>
           <div style={{ marginTop: 16 }}>
             <button onClick={run} disabled={running} className="btn btn-primary">
@@ -134,6 +155,56 @@ export default function SkillPage({ params }: { params: Promise<{ id: string }> 
           ) : (
             <p className="lede">Not learned yet. Run the pipeline to extract steps.</p>
           )}
+          {guide ? (
+            <section aria-label="Web sources" style={{ marginTop: 24 }}>
+              <h2 className="display" style={{ fontSize: 26, marginBottom: 8 }}>
+                On the web
+              </h2>
+              {guide.summary ? <p className="lede">{guide.summary}</p> : null}
+              {guide.videos.length > 0 ? (
+                <>
+                  <h3 style={{ fontSize: 18, margin: "12px 0 4px" }}>Watch</h3>
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {guide.videos.map((video) => (
+                      <li key={video.url}>
+                        <a href={video.url} target="_blank" rel="noreferrer">
+                          {video.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {guide.articles.length > 0 ? (
+                <>
+                  <h3 style={{ fontSize: 18, margin: "12px 0 4px" }}>Read</h3>
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {guide.articles.map((article) => (
+                      <li key={article.url}>
+                        <a href={article.url} target="_blank" rel="noreferrer">
+                          {article.title}
+                        </a>
+                        {article.snippet ? <span className="session-meta"> — {article.snippet}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              {guide.sources.length > 0 ? (
+                <p className="mistakes">
+                  Sources:{" "}
+                  {guide.sources.map((source, i) => (
+                    <span key={source.url}>
+                      {i > 0 ? "; " : ""}
+                      <a href={source.url} target="_blank" rel="noreferrer">
+                        {source.title}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       </div>
     </>

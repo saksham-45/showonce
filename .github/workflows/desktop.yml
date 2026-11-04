@@ -1,0 +1,51 @@
+name: desktop
+
+on:
+  push:
+    branches:
+      - "fm/showonce-electron-a1"
+      - main
+  pull_request:
+    branches:
+      - "fm/showonce-polish-a1"
+      - main
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            dist: dist:mac
+          - os: windows-latest
+            dist: dist:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # The lockfile below was generated with npm 11.6.0; the npm shipping
+      # with latest Node 24 resolves electron-builder's optional tree
+      # differently and rejects `npm ci` as out of sync. Pin the installer
+      # so CI validates the same tree developers install locally.
+      - name: Pin npm to the lockfile's version
+        run: npm install -g npm@11.6.0
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck and production build
+        run: |
+          npx tsc --noEmit
+          npm run build
+      - name: Package (${{ matrix.dist }})
+        run: npm run ${{ matrix.dist }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: showonce-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: error
