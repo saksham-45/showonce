@@ -2,7 +2,7 @@
 // `next build` traces only the JS it needs, so public assets and the static
 // bundle are copied in beside server.js exactly as the Next.js standalone
 // docs describe. Idempotent; safe to run after every build.
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,8 +13,19 @@ if (!existsSync(path.join(standalone, "server.js"))) {
   console.error("stage-standalone: .next/standalone/server.js is missing — is next.config.ts output 'standalone'?");
   process.exit(1);
 }
-cpSync(path.join(root, "public"), path.join(standalone, "public"), { recursive: true });
-cpSync(path.join(root, ".next", "static"), path.join(standalone, ".next", "static"), { recursive: true });
+// Fresh clones have no public/ (git tracks no empty dirs and
+// /public/skills is gitignored), so a missing source means "nothing to
+// copy", never a failure — the server creates skill dirs on demand.
+for (const [src, dest] of [
+  [path.join(root, "public"), path.join(standalone, "public")],
+  [path.join(root, ".next", "static"), path.join(standalone, ".next", "static")],
+]) {
+  if (existsSync(src)) {
+    cpSync(src, dest, { recursive: true });
+  } else {
+    mkdirSync(dest, { recursive: true });
+  }
+}
 // The trace prunes node_modules to statically referenced files, but app
 // routes load their server runtime through a dynamic require (e.g.
 // next/dist/compiled/next-server/app-route-turbo.runtime.prod.js), which the
