@@ -300,6 +300,11 @@ metered Learn costs exactly frames + 1 + 1 + steps with the frame budget holding
 12-frame clip at budget 8, identical Learn/lookup/coach repeats make zero new calls,
 a cap of 2 trips after exactly 2 attempts with a named 429, and `/api/usage` plus the
 home section report the cumulative totals.
+`smoke-overlap.sh` boots its own stub server and proves the layout contract in a real
+headless Chrome (needs `CHROME_BIN`): every route at desktop and phone widths, on the
+website and with the desktop-shell class, has no control collisions, no horizontal
+overflow, and focused-field outline clearance (regression: the lookup submit button
+used to swallow the query input's focused ring).
 
 Status: Learn, real-time Coach, and web lookup run end to end on the stub providers in
 production builds, and the packaged macOS app launches green; the live Meta proofs
