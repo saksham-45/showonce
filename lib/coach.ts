@@ -78,27 +78,47 @@ export const JUDGE_TIMEOUT_MS = 25_000;
 // is ~70 bytes); the stub treats them as "can't see you" rather than a pass.
 export const MIN_USEFUL_FRAME_BYTES = 1024;
 
+// Tutor voice: every correction is one short spoken sentence from the same
+// personal tutor, on both sides of the verdict. A miss names the concrete
+// observed gap against the checkpoint plus exactly one physical redo; a pass
+// names exactly what the learner did right against the checkpoint. Warm and
+// direct throughout: never generic praise alone, never a multi-step lecture,
+// never a question instead of guidance.
+//
+// Worked examples — one per verdict — so future edits preserve the voice:
+//   nudge:   "Almost — that flap stops just short of the edge, so fold it again all the way to the edge."
+//   wrong:   "I can't see you at all — step into frame so your hands stay visible for this: fold the top corner to the center crease."
+//   correct: "That flap is flush to the edge — clean fold, that's the checkpoint."
+export const COACH_VOICE_EXAMPLES: Record<CoachVerdict, string> = {
+  nudge:
+    "Almost — that flap stops just short of the edge, so fold it again all the way to the edge.",
+  wrong:
+    "I can't see you at all — step into frame so your hands stay visible for this: fold the top corner to the center crease.",
+  correct: "That flap is flush to the edge — clean fold, that's the checkpoint.",
+};
+
 // Deterministic stub: frame presence + usability only, no model involved.
 // A usable frame passes the current step; anything else holds the learner
-// on the step with a spoken correction.
+// on the step with a spoken correction. Each branch speaks in the tutor
+// voice above: specific, checkpoint-grounded, one action.
 export function stubCompare(step: SkillStep, frameBytes: Buffer | null): CoachResult {
   if (!frameBytes || frameBytes.length === 0) {
     return {
       verdict: "wrong",
-      correction: "No camera frame arrived. Check the camera permission and hold still.",
+      correction: `I can't see you at all — step into frame so your hands stay visible for this: ${step.checkpoint}`,
       advance: false,
     };
   }
   if (frameBytes.length < MIN_USEFUL_FRAME_BYTES) {
     return {
       verdict: "nudge",
-      correction: `I can barely see you. Move back so your upper body is in frame, then match this: ${step.checkpoint}`,
+      correction: `I can barely see you — move back until your hands are in frame for this: ${step.checkpoint}`,
       advance: false,
     };
   }
   return {
     verdict: "correct",
-    correction: `Good. ${step.checkpoint}`,
+    correction: `That's it — nicely held: ${step.checkpoint}`,
     advance: true,
   };
 }
@@ -211,7 +231,10 @@ async function metaCompare(
       : "No reference image is available; judge against the checkpoint text.",
     'Reply with JSON only: {"verdict": "correct" | "nudge" | "wrong", "correction": string, "advance": boolean}.',
     'verdict "correct" only when the checkpoint is clearly met; "nudge" when close; "wrong" when far off or no person is visible.',
-    "correction is one short spoken sentence telling the learner what to fix, or confirming the checkpoint.",
+    "correction is one short spoken sentence in a warm, direct tutor voice.",
+    "On nudge or wrong, name the concrete observed gap versus the checkpoint (body part, object, direction, degree — e.g. the flap stops short of the edge) and give exactly one physical redo (e.g. fold that flap again all the way to the edge).",
+    "On correct, confirm by naming exactly what the learner did right against the checkpoint (e.g. that flap is flush to the edge — clean fold).",
+    "Never generic praise alone, never a multi-step lecture, never a question instead of guidance.",
     "advance is true only when verdict is correct.",
   ].join(" ");
 
