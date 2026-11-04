@@ -37,7 +37,7 @@ export async function runLearnPipeline(skillId: string, title: string): Promise<
     provider = new MetaProvider(config.apiBase, config.apiKey);
   }
 
-  const { frames, audioPath, durationSeconds } = await extractMedia(dir, config.framesPerSecond);
+  const { frames, audioPath, durationSeconds } = await extractMedia(dir, config.framesPerSecond, config.modelFrameBudget);
   if (frames.length === 0) {
     throw new Error("Frame extraction produced no frames; is the uploaded clip valid video?");
   }

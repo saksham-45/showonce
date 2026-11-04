@@ -208,7 +208,8 @@ export class MetaProvider implements LearnProvider {
 // describes each phase by its observed time range — no skill-specific
 // branching anywhere: the same path serves a paper airplane, a dance move,
 // or a repair task. The Meta path replaces these time-based drafts with
-// model-inferred steps for the real skill.
+// model-inferred steps for the real skill. Both providers fuse only the
+// budgeted frame subset extraction selected, so long clips cost the same.
 // ---------------------------------------------------------------------------
 
 // Skill-agnostic coaching mistakes: true of learning any physical movement.

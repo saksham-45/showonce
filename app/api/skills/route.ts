@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSkill, listSkills } from "@/lib/store";
 
-// Keep uploads small enough for a 60s phone clip; larger files fail fast here
-// instead of mid-pipeline.
+// Cap upload bytes so oversized files fail fast here instead of
+// mid-pipeline. Clip length is free: extraction reduces any duration to the
+// fixed model frame budget.
 const MAX_CLIP_BYTES = 200 * 1024 * 1024;
 
 export async function GET() {

@@ -15,6 +15,10 @@ export interface LearnConfig {
   apiKey: string | null;
   // Frames sampled per second during extraction.
   framesPerSecond: number;
+  // Fixed model budget: no matter how long the input clip is, at most this
+  // many sampled frames reach the provider, so model cost stays flat while
+  // input length is free.
+  modelFrameBudget: number;
   // How many phases the stub stand-in splits a clip into. The Meta path lets
   // the model decide the step count; the stub needs a configured default so
   // clips of any length and any skill still fuse to a valid graph.
@@ -32,6 +36,12 @@ function stubStepsFromEnv(value: string | undefined): number {
   return parsed;
 }
 
+function modelFrameBudgetFromEnv(value: string | undefined): number {
+  const parsed = Number(value ?? "");
+  if (!Number.isInteger(parsed) || parsed < 8 || parsed > 240) return 60;
+  return parsed;
+}
+
 export function loadConfig(): LearnConfig {
   return {
     clipSource: process.env.SHOWNCE_CLIP ?? null,
@@ -40,5 +50,6 @@ export function loadConfig(): LearnConfig {
     apiKey: process.env.META_API_KEY ?? null,
     framesPerSecond: 1,
     stubSteps: stubStepsFromEnv(process.env.SHOWNCE_STEPS),
+    modelFrameBudget: modelFrameBudgetFromEnv(process.env.SHOWNCE_MODEL_FRAMES),
   };
 }

@@ -63,7 +63,7 @@ export default function HomePage() {
           </h1>
           <hr className="hero-rule" />
           <p className="lede" style={{ marginTop: 16 }}>
-            Record a 60-second clip of an expert doing a physical task. ShowOnce studies it into
+            Record a clip of an expert doing a physical task — any length. ShowOnce studies it into
             steps, then watches you back over the camera with spoken corrections until every step
             checks off.
           </p>
