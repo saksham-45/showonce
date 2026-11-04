@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Counting fake Meta Model API for scripts/smoke-cost.sh.
 
-Canned responses for every endpoint the app calls (chat completions for
-sam-3.1 / muse-spark fuse / coach judge, audio transcriptions, image
-generations, Responses search grounding), one appended line per request in
+Canned Responses payloads for every endpoint the app calls (/responses
+for sam-3.1 segment / muse-spark fuse+transcribe / coach judge / search
+grounding, plus image generations), one appended line per request in
 $SHOWNCE_COST_COUNTS. The fuse reply points steps at the request's own
 frame files, so the pipeline's unknown-keyframe guard passes.
 """
@@ -17,6 +17,16 @@ COUNTS = os.environ["SHOWNCE_COST_COUNTS"]
 PNG_1X1_B64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
+
+
+USAGE = {"input_tokens": 100, "output_tokens": 20, "total_tokens": 120}
+
+
+def responses_text(text):
+    return {
+        "output": [{"type": "message", "content": [{"type": "output_text", "text": text}]}],
+        "usage": dict(USAGE),
+    }
 
 
 def guide_payload():
@@ -64,7 +74,8 @@ def guide_payload():
                     },
                 ],
             },
-        ]
+        ],
+        "usage": dict(USAGE),
     }
 
 
@@ -100,54 +111,49 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b""
         with open(COUNTS, "a") as f:
             f.write(self.path + "\n")
-        if self.path == "/chat/completions":
+        if self.path == "/images/generations":
+            self._send({"data": [{"b64_json": PNG_1X1_B64}]})
+        elif self.path == "/responses":
             try:
                 req = json.loads(raw.decode())
             except Exception:
                 req = {}
+            if req.get("tools"):
+                self._send(guide_payload())
+                return
             model = req.get("model", "")
-            msgs = req.get("messages", [])
-            system = msgs[0].get("content", "") if msgs and isinstance(msgs[0], dict) else ""
+            prompt_input = req.get("input", "")
             if model == "sam-3.1":
-                self._send({"choices": [{"message": {"content": '{"regions": []}'}}]})
-            elif "fuse video segmentation" in str(system):
+                self._send(responses_text('{"regions": []}'))
+            elif isinstance(prompt_input, list) and any(
+                isinstance(part, dict) and part.get("type") == "input_audio"
+                for item in prompt_input
+                if isinstance(item, dict)
+                for part in (item.get("content") or [])
+            ):
+                self._send(responses_text("fake narration one. fake narration two."))
+            elif isinstance(prompt_input, str) and "fuse video segmentation" in prompt_input:
                 try:
-                    user = json.loads(msgs[1]["content"])
-                    frames = user.get("frames", [])
+                    # The payload JSON is appended after the prompt's final
+                    # newline (the prompt itself carries braces, so a plain
+                    # index("{") would grab the wrong one).
+                    payload = json.loads(prompt_input[prompt_input.rindex("\n{") + 1 :])
+                    frames = payload.get("frames", [])
                 except Exception:
                     frames = []
-                self._send({"choices": [{"message": {"content": json.dumps(fuse_payload(frames))}}]})
+                self._send(responses_text(json.dumps(fuse_payload(frames))))
             else:
                 self._send(
-                    {
-                        "choices": [
+                    responses_text(
+                        json.dumps(
                             {
-                                "message": {
-                                    "content": json.dumps(
-                                        {
-                                            "verdict": "correct",
-                                            "correction": "Fake correction holds.",
-                                            "advance": True,
-                                        }
-                                    )
-                                }
+                                "verdict": "correct",
+                                "correction": "Fake correction holds.",
+                                "advance": True,
                             }
-                        ]
-                    }
+                        )
+                    )
                 )
-        elif self.path == "/audio/transcriptions":
-            self._send(
-                {
-                    "segments": [
-                        {"start": 0, "end": 1, "text": "fake narration one"},
-                        {"start": 1, "end": 2, "text": "fake narration two"},
-                    ]
-                }
-            )
-        elif self.path == "/images/generations":
-            self._send({"data": [{"b64_json": PNG_1X1_B64}]})
-        elif self.path == "/responses":
-            self._send(guide_payload())
         else:
             self.send_response(404)
             self.end_headers()
