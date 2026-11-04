@@ -52,6 +52,24 @@ pass=$((pass + 1))
 grep -q 'Switch skill' /tmp/smoke-coach-page.html || { echo "FAIL coach skill switcher missing"; exit 1; }
 echo "ok coach skill switcher present"
 pass=$((pass + 1))
+# Voice search rides the same typed-first pattern on the coach switcher: the
+# SSR first paint is the no-voice state, which proves the fallback path.
+grep -q 'data-voice-for="finder-coach"' /tmp/smoke-coach-page.html || { echo "FAIL coach voice mic missing"; exit 1; }
+grep -q 'id="finder-coach"' /tmp/smoke-coach-page.html || { echo "FAIL coach typed fallback missing"; exit 1; }
+echo "ok coach voice mic anchored to typed switcher"
+pass=$((pass + 1))
+# The mute toggle renders after the skill loads (client-side), so the headless
+# proof reads the shipped client bundle the page references: it must contain
+# the toggle and its silent-where-unsupported note.
+grep -o '/_next/static/chunks/[^"\\]*\.js' /tmp/smoke-coach-page.html | sort -u > /tmp/smoke-coach-chunks
+: > /tmp/smoke-coach-client.js
+while read -r chunk; do curl -s "$BASE$chunk" >> /tmp/smoke-coach-client.js; done < /tmp/smoke-coach-chunks
+# (Props are minified to "data-testid":"coach-mute", so match the stable
+# testid value and note text rather than the source-attribute spelling.)
+grep -q 'coach-mute' /tmp/smoke-coach-client.js || { echo "FAIL coach mute toggle missing from client bundle"; exit 1; }
+grep -q 'coaching stays silent' /tmp/smoke-coach-client.js || { echo "FAIL coach voice-off note missing from client bundle"; exit 1; }
+echo "ok coach mute toggle with silent-where-unsupported note"
+pass=$((pass + 1))
 # The coach view shows this reference image; like the clip, it must serve for
 # a skill learned after the server booted.
 check "coach-reference-serves" 200 "$BASE/skills/$ID/references/step-1.png"

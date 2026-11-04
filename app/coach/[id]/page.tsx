@@ -32,10 +32,21 @@ const MAX_BACKOFF_MS = 8000;
 
 type ConnState = "idle" | "live" | "retrying";
 
-function speak(text: string) {
+const MUTE_STORAGE_KEY = "showonce-coach-muted";
+
+function speak(text: string, muted: boolean) {
+  if (muted) return;
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+function readMutedPreference(): boolean {
+  try {
+    return window.localStorage.getItem(MUTE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 // Read the NDJSON coach stream event by event. Phases update the status
@@ -93,7 +104,10 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
   const [conn, setConn] = useState<ConnState>("idle");
   const [retryNote, setRetryNote] = useState<string | null>(null);
   const [earned, setEarned] = useState<string[]>([]);
+  const [muted, setMuted] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
   const recordedRef = useRef(false);
+  const mutedRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -139,6 +153,27 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
     };
   }, []);
 
+  // Coach voice: silent where the browser has no speech synthesis, and
+  // silencable everywhere else. The stored preference survives reloads.
+  useEffect(() => {
+    setVoiceSupported(typeof window !== "undefined" && "speechSynthesis" in window);
+    const stored = readMutedPreference();
+    mutedRef.current = stored;
+    setMuted(stored);
+  }, []);
+
+  function toggleMute() {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    try {
+      window.localStorage.setItem(MUTE_STORAGE_KEY, next ? "1" : "0");
+    } catch {
+      // Private-mode storage failure keeps the in-memory choice only.
+    }
+    if (next && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  }
+
   const complete = graph !== null && graph.steps.length > 0 && current >= graph.steps.length;
 
   useEffect(() => {
@@ -150,7 +185,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
       const event = recordCompletion(profile, graph.skillId, graph.steps.length);
       saveProfile(profile);
       setEarned(event.earned);
-      speak(`Skill complete. You finished ${graph.title}. Badge earned.`);
+      speak(`Skill complete. You finished ${graph.title}. Badge earned.`, mutedRef.current);
     }
     if (!complete) recordedRef.current = false;
   }, [complete, graph]);
@@ -212,7 +247,7 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
         setConn("live");
         setRetryNote(null);
         setLastReply(reply);
-        if (reply.correction) speak(reply.correction);
+        if (reply.correction) speak(reply.correction, mutedRef.current);
         if (reply.verdict !== "correct") {
           const profile = loadProfile();
           recordFriction(profile, requestedId);
@@ -370,6 +405,27 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
                     Start coaching
                   </button>
                 )}
+                {voiceSupported ? (
+                  <button
+                    onClick={toggleMute}
+                    className="btn mute-btn"
+                    aria-pressed={muted}
+                    aria-label={muted ? "Unmute coach voice" : "Mute coach voice"}
+                    data-testid="coach-mute"
+                  >
+                    {muted ? "Unmute voice" : "Mute voice"}
+                  </button>
+                ) : (
+                  <button
+                    className="btn mute-btn"
+                    disabled
+                    aria-label="Mute coach voice (not supported in this browser)"
+                    data-testid="coach-mute"
+                    title="Spoken corrections need speech synthesis"
+                  >
+                    Voice off
+                  </button>
+                )}
                 <span className={`status-pill ${connClass}`} role="status">
                   <span className="dot" aria-hidden="true" />
                   {connLabel}
@@ -394,6 +450,11 @@ export default function CoachPage({ params }: { params: Promise<{ id: string }> 
               {cameraError ? (
                 <p className="error" role="alert">
                   {cameraError}
+                </p>
+              ) : null}
+              {!voiceSupported ? (
+                <p className="voice-status" role="status" data-testid="coach-voice-note">
+                  Spoken corrections are not supported in this browser — coaching stays silent.
                 </p>
               ) : null}
             </div>

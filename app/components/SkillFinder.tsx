@@ -7,10 +7,12 @@
 
 import { useEffect, useState } from "react";
 import { matchSkills, type SkillEntry } from "@/lib/skillmatch";
+import VoiceMicButton from "./VoiceMicButton";
 
 export default function SkillFinder({ coach = false }: { coach?: boolean }) {
   const [skills, setSkills] = useState<SkillEntry[]>([]);
   const [query, setQuery] = useState("");
+  const finderId = coach ? "finder-coach" : "finder-home";
 
   useEffect(() => {
     fetch("/api/skills")
@@ -25,17 +27,20 @@ export default function SkillFinder({ coach = false }: { coach?: boolean }) {
   return (
     <div>
       <div className="field">
-        <label htmlFor={coach ? "finder-coach" : "finder-home"}>
-          {coach ? "Switch skill — type its name" : "Already learned? Type the skill"}
+        <label htmlFor={finderId}>
+          {coach ? "Switch skill — type or speak its name" : "Already learned? Type or speak the skill"}
         </label>
-        <input
-          id={coach ? "finder-coach" : "finder-home"}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. paper airplane"
-          autoComplete="off"
-        />
+        <div className="voice-row">
+          <input
+            id={finderId}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="e.g. paper airplane"
+            autoComplete="off"
+          />
+          <VoiceMicButton inputId={finderId} onTranscript={setQuery} />
+        </div>
       </div>
       {matches.length > 0 ? (
         <ul className="finder-results" aria-label="Matching learned skills">

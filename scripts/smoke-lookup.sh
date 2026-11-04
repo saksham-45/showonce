@@ -109,4 +109,19 @@ grep -q 'Search the web for a skill' /tmp/smoke-lookup-home.html || { echo "FAIL
 echo "ok home offers web lookup"
 pass=$((pass + 1))
 
+# Voice search: a mic control sits beside each typed query, anchored to its
+# field, with the typed input always present as fallback. The SSR first
+# paint is the no-recognition state (headless curl has no SpeechRecognition),
+# which proves the unsupported path; capable browsers upgrade on hydration.
+for field in finder-home web-lookup; do
+  grep -q "data-voice-for=\"$field\"" /tmp/smoke-lookup-home.html || { echo "FAIL home voice mic for $field missing" >&2; exit 1; }
+  grep -q "id=\"$field\"" /tmp/smoke-lookup-home.html || { echo "FAIL home typed fallback for $field missing" >&2; exit 1; }
+done
+echo "ok home voice mics anchored to typed fields (finder-home, web-lookup)"
+pass=$((pass + 1))
+grep -q 'data-testid="voice-mic"' /tmp/smoke-lookup-home.html || { echo "FAIL home voice mic missing" >&2; exit 1; }
+grep -q 'Voice search not supported in this browser' /tmp/smoke-lookup-home.html || { echo "FAIL home voice fallback note missing" >&2; exit 1; }
+echo "ok home voice fallback state (typed path, no-support note)"
+pass=$((pass + 1))
+
 echo "smoke-lookup: $pass checks passed (skill $ID)"
