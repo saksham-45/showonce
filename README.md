@@ -2,7 +2,7 @@
 
 Learn any physical skill from one video — then a real-time AI coach watches you back.
 
-Record a 60-second clip of an expert doing a physical task. ShowOnce studies it into a
+Record a clip of an expert doing a physical task — any length. ShowOnce studies it into a
 step-by-step skill graph, then coaches you live over the camera: every few seconds a still
 frame is judged against the current step and a spoken correction tells you what to fix until
 every checkpoint passes and the completion badge lights. You can also just type a skill name
@@ -59,8 +59,8 @@ pipeline, coach, or UI branches on the skill: the graph schema is generic, the s
 stand-in splits any clip into configured timed phases, and the Meta path lets the model
 infer steps for whatever the clip shows.
 
-1. Upload stores the clip with a skill id (`POST /api/skills`, 200 MB cap, video-only).
-2. `lib/extract.ts` samples frames at ~1 fps and the mono 16 kHz audio track via ffmpeg.
+1. Upload stores the clip with a skill id (`POST /api/skills`, 200 MB cap, video-only, any length).
+2. `lib/extract.ts` samples frames at ~1 fps and the mono 16 kHz audio track via ffmpeg, then reduces the frames to a fixed model budget (default 60, `SHOWNCE_MODEL_FRAMES`): long clips keep even temporal coverage with original timestamps, so model cost stays flat while input length is free.
 3. `MetaProvider` (`lib/providers.ts`) segments frames with `sam-3.1` and transcribes
    narration with `muse-voice-transcribe-1.0`.
 4. `muse-spark-1.3` fuses frames, masks, and transcript into `skill-graph.json` (title plus
@@ -110,6 +110,7 @@ airplane graph, pass-on-visible-frame coaching, and the badge.
 | `META_API_KEY` | — (required for `meta`) | Bearer [REDACTED] Meta Model API, also read from `.env.local` |
 | `SHOWNCE_PROVIDER` | `meta` | `meta` for live models, `stub` for deterministic local proof |
 | `SHOWNCE_STEPS` | `5` | Phases the stub stand-in splits any clip into (1–12; the Meta path lets the model decide) |
+| `SHOWNCE_MODEL_FRAMES` | `60` | Max sampled frames sent to the model per Learn run (8–240); longer clips are evenly downsampled to this budget |
 | `SHOWNCE_CLIP` | — | Expert clip path; used by the smoke scripts when set |
 | `SHOWNCE_SMOKE_CLIP` | — | Clip file for `scripts/smoke-*.sh` (falls back to `SHOWNCE_CLIP`) |
 | `SHOWNCE_DATA_DIR` | `public/skills` | Per-skill storage root (proof runs point it at a temp dir) |
@@ -240,8 +241,9 @@ and that the Library and Profile surfaces render.
 `smoke-coach.sh` proves correct/nudge/wrong verdicts, the four error cases, the NDJSON
 stream phases, and all 5 steps advancing — the same progression that lights the badge.
 `smoke-generalize.sh` learns two distinct clips plus a micro-clip through the same
-unmodified path (asserting only the generic graph contract) and proves a corrupt clip
-fails gracefully with a clear 400. Distinct fixtures come from
+unmodified path (asserting only the generic graph contract), proves a multi-minute clip
+flows end to end with its full duration preserved while the model frame budget holds,
+and proves a corrupt clip fails gracefully with a clear 400. Distinct fixtures come from
 `scripts/make-placeholder-clip.sh` (`PHASES`, `PHASE_SECS`, `HUE_BASE`, `FREQ_BASE` tune
 phases, length, look, and sound).
 `smoke-lookup.sh` proves web search-and-distill end to end on the stub (videos, articles,

@@ -50,7 +50,7 @@ EOF
   echo "ok $label: skill and coach pages render"
 }
 
-# Example A: the default 60s five-phase clip.
+# Example A: the default five-phase clip.
 sh scripts/make-placeholder-clip.sh "$TMPD/a.mp4" >/dev/null
 A="$(learn "$TMPD/a.mp4" 'Example A sunset routine')"
 check_graph "$A" "example-a"
@@ -73,4 +73,38 @@ grep -q "not valid video" "$TMPD/junk-body" || { echo "FAIL corrupt message name
 pass=$((pass + 1))
 echo "ok example-c: corrupt clip rejected gracefully (HTTP 400, names the cause)"
 
-echo "smoke-generalize: $pass checks passed (skills $A $B $C)"
+# Example D: a multi-minute clip (16 phases x 12s = 192s) flows through the
+# same path end to end. Length is free: extraction reduces any duration to
+# the fixed model frame budget, and the graph still records the full length.
+PHASES=16 PHASE_SECS=12 HUE_BASE=40 FREQ_BASE=180 sh scripts/make-placeholder-clip.sh "$TMPD/d.mp4" >/dev/null
+D="$(learn "$TMPD/d.mp4" 'Example D long drill')"
+check_graph "$D" "example-d-long"
+python3 - "$TMPD/graph-$D.json" <<'EOF'
+import json, sys
+graph = json.load(open(sys.argv[1]))
+assert graph["clipDurationSeconds"] >= 180, f'long clip must keep its full length, got {graph["clipDurationSeconds"]}'
+print(f'ok example-d-long: full {graph["clipDurationSeconds"]:.0f}s duration preserved in graph')
+EOF
+pass=$((pass + 1))
+
+# The budget selector itself is pinned against the shipped implementation:
+# any input length collapses to at most the budget, first/last frames are
+# kept, original timestamps survive, and reselection is identical (stub
+# determinism).
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+node --input-type=module -e "
+import('$ROOT/lib/extract.ts').then((m) => {
+  const frames = (n) => Array.from({ length: n }, (_, i) => ({ file: 'f' + i + '.jpg', index: i, atSeconds: i }));
+  const assert = (cond, msg) => { if (!cond) { console.error('FAIL ' + msg); process.exit(1); } };
+  const long = m.selectBudgetedFrames(frames(192), 60);
+  assert(long.length === 60, 'budget caps long input, got ' + long.length);
+  assert(long[0].file === 'f0.jpg' && long[59].file === 'f191.jpg', 'first/last frames kept');
+  assert(long[59].atSeconds === 191, 'original timestamps survive, got ' + long[59].atSeconds);
+  assert(JSON.stringify(long) === JSON.stringify(m.selectBudgetedFrames(frames(192), 60)), 'selection deterministic');
+  const short = m.selectBudgetedFrames(frames(36), 60);
+  assert(short.length === 36, 'short input untouched, got ' + short.length);
+  console.log('ok frame budget: 192->60 capped, 36 untouched, deterministic');
+});"
+pass=$((pass + 1))
+
+echo "smoke-generalize: $pass checks passed (skills $A $B $C $D)"

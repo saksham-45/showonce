@@ -145,7 +145,7 @@ export default function ClipDropzone({
               >
                 browse files
               </button>{" "}
-              · MP4 or MOV · 60 seconds · up to 200 MB
+              · MP4 or MOV · any length · up to 200 MB
             </p>
           </>
         )}
