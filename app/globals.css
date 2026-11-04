@@ -1091,6 +1091,71 @@ h3,
   }
 }
 
+/* Voice search: mic control beside the typed field. The typed input
+   always stays — the mic only fills it. Listening borrows the signal
+   blue; errors read as errors. The row never overflows narrow screens:
+   the input shrinks, the mic keeps its 44px target. */
+.voice-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.voice-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The wrap vanishes from layout so the mic sits beside the input while
+   its status line drops full-width below — both stay inside the row. */
+.voice-wrap {
+  display: contents;
+}
+
+.mic-btn {
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 12px 14px;
+  white-space: nowrap;
+}
+
+.mic-btn svg {
+  flex: 0 0 auto;
+}
+
+.mic-btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent-deep);
+  color: var(--accent-ink);
+}
+
+.mic-btn:disabled {
+  cursor: not-allowed;
+}
+
+.voice-status {
+  flex: 1 1 100%;
+  font-size: 14px;
+  color: var(--muted);
+  min-height: 20px;
+  margin: 0;
+}
+
+.voice-status:empty {
+  display: none;
+}
+
+.voice-status.voice-error {
+  color: var(--bad);
+}
+
+/* Coach voice toggle: pressed means silenced. */
+.mute-btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+
 /* Reduced motion: the badge appears instantly, the live dot stays solid. */
 @media (prefers-reduced-motion: reduce) {
   .badge,

@@ -112,8 +112,8 @@ export default function HomePage() {
           No clip? Learn from the web
         </h2>
         <p className="lede" style={{ marginBottom: 16 }}>
-          Type a skill: ShowOnce searches for videos to watch and written guides to read, distills
-          them into steps with cited sources, and coaches you through them.
+          Type or speak a skill: ShowOnce searches for videos to watch and written guides to read,
+          distills them into steps with cited sources, and coaches you through them.
         </p>
         <div className="card">
           <WebLookup />

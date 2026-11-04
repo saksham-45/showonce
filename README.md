@@ -183,6 +183,18 @@ Responsive: session rows wrap, the tier rail scrolls horizontally, the
 profile name form stacks, and the oversized step numeral shrinks — all at
 the existing 640 px / 480 px breakpoints.
 
+Voice search (`VoiceMicButton`, used by `SkillFinder` and `WebLookup`): a mic
+control beside each typed query fills the field via the Web Speech API
+(Chrome/Edge). The typed field always stays as fallback; browsers without
+recognition, denied mic permission, and recognition errors each render an
+explicit inline state, recognition starts only on an explicit press, and
+results announce through a polite live region. The coach page adds a mute
+toggle for spoken corrections (stored as `showonce-coach-muted` in
+localStorage): pages stay silent where speech synthesis is missing, and the
+learner can silence it where present. Headless smokes prove the typed
+fallback plus the no-voice states; the mic itself needs a manual pass
+(see the PR body checklist).
+
 ## Verify it
 
 ```sh

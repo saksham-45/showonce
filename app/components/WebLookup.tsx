@@ -6,6 +6,7 @@
 // searches via Responses API grounding when a key is present.
 
 import { useState } from "react";
+import VoiceMicButton from "./VoiceMicButton";
 
 interface LookupVideo {
   title: string;
@@ -87,15 +88,18 @@ export default function WebLookup({ onSaved }: { onSaved?: (skillId: string) => 
     <div>
       <form onSubmit={search}>
         <div className="field">
-          <label htmlFor="web-lookup">Search the web for a skill</label>
-          <input
-            id="web-lookup"
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. juggle three balls"
-            autoComplete="off"
-          />
+          <label htmlFor="web-lookup">Search the web for a skill — type or speak it</label>
+          <div className="voice-row">
+            <input
+              id="web-lookup"
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="e.g. juggle three balls"
+              autoComplete="off"
+            />
+            <VoiceMicButton inputId="web-lookup" onTranscript={setQuery} />
+          </div>
         </div>
         <button type="submit" disabled={busy || !query.trim()} className="btn btn-primary">
           {busy ? "Searching the web…" : "Search videos and guides"}
