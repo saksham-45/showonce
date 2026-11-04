@@ -130,9 +130,9 @@ Usage is visible, never blind: every Learn/Lookup run logs one `[showonce-usage]
 with its call and hit counts, `GET /api/usage` reports cumulative calls by model plus
 budgeted input totals since boot, and the home page carries an API-usage section fed by
 that endpoint.
-Token totals are deliberately not reported: the responses used here do not guarantee a
-usage field, so the ledger records calls, frames, transcript characters, and image
-counts instead of inventing token numbers.
+Token totals accumulate from Responses `usage` blocks when present; the ledger otherwise
+records calls, frames, transcript characters, and image counts instead of inventing
+token numbers.
 
 ## Configuration
 

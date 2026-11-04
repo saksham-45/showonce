@@ -115,10 +115,12 @@ print("ok stub lookup added zero API calls")
 EOF
 pass=$((pass + 1))
 
-curl -s "$STUB/" -o "$TMP/home.html"
-grep -q 'API usage' "$TMP/home.html" || { echo "FAIL home usage section missing" >&2; exit 1; }
-grep -q 'Loading usage' "$TMP/home.html" || { echo "FAIL home usage loading-first state missing" >&2; exit 1; }
-echo "ok home usage section with loading-first state"
+# The usage section lives on /profile (moved from home in #11); its SSR
+# first paint carries the loading state before the client fetch resolves.
+curl -s "$STUB/profile" -o "$TMP/profile.html"
+grep -q 'API usage' "$TMP/profile.html" || { echo "FAIL profile usage section missing" >&2; exit 1; }
+grep -q 'Loading usage' "$TMP/profile.html" || { echo "FAIL profile usage loading-first state missing" >&2; exit 1; }
+echo "ok profile usage section with loading-first state"
 pass=$((pass + 1))
 stop_apps
 
@@ -149,13 +151,13 @@ print("ok metered graph: 5 steps, same features")
 EOF
 pass=$((pass + 1))
 
-# Cold run over 6 frames, 5 steps: 6 segment + 1 transcribe + 1 fuse + 5
-# reference calls. This is the "before" number every rerun used to repay.
-[ "$(calls /chat/completions)" = "7" ] || { echo "FAIL want 7 chats, got $(calls /chat/completions)" >&2; exit 1; }
-[ "$(calls /audio/transcriptions)" = "1" ] || { echo "FAIL want 1 transcription" >&2; exit 1; }
+# Cold run over 6 frames, 5 steps: 6 segment + 1 transcribe + 1 fuse = 8
+# /responses calls + 5 reference calls. This is the "before" number every
+# rerun used to repay.
+[ "$(calls /responses)" = "8" ] || { echo "FAIL want 8 responses, got $(calls /responses)" >&2; exit 1; }
 [ "$(calls /images/generations)" = "5" ] || { echo "FAIL want 5 reference images" >&2; exit 1; }
 [ "$(calls)" = "13" ] || { echo "FAIL want 13 calls, got $(calls)" >&2; exit 1; }
-echo "ok cold learn cost exactly 13 calls (6+1+1+5)"
+echo "ok cold learn cost exactly 13 calls (8 responses + 5 images)"
 pass=$((pass + 1))
 
 check "meta-rerun" 200 -X POST "$META/api/skills/$ID/run"
@@ -177,9 +179,10 @@ check "meta-lookup" 200 -X POST "$META/api/lookup" -H 'Content-Type: application
 grep -q '"via":"meta"' "$TMP/body" || { echo "FAIL meta lookup via missing" >&2; exit 1; }
 echo "ok meta lookup via"
 pass=$((pass + 1))
-[ "$(calls /responses)" = "1" ] || { echo "FAIL want 1 lookup call" >&2; exit 1; }
+# 8 learn responses + 1 lookup response.
+[ "$(calls /responses)" = "9" ] || { echo "FAIL want 9 responses, got $(calls /responses)" >&2; exit 1; }
 check "meta-lookup-repeat" 200 -X POST "$META/api/lookup" -H 'Content-Type: application/json' -d '{"query":"  FAKE Skill   Query "}'
-[ "$(calls /responses)" = "1" ] || { echo "FAIL repeated query made a new call" >&2; exit 1; }
+[ "$(calls /responses)" = "9" ] || { echo "FAIL repeated query made a new call" >&2; exit 1; }
 python3 - "$TMP/body" <<'EOF'
 import json, sys
 guide = json.load(open(sys.argv[1]))
@@ -191,17 +194,17 @@ pass=$((pass + 1))
 
 FRAME="$(head -c 2000 /dev/urandom | base64 | tr -d '\n')"
 printf '{"stepId":"step-1","frame":"data:image/jpeg;base64,%s"}' "$FRAME" > "$TMP/frame.json"
-chats_before="$(calls /chat/completions)"
+responses_before="$(calls /responses)"
 check "meta-coach" 200 -X POST "$META/api/skills/$ID/coach" -H 'Content-Type: application/json' -d @"$TMP/frame.json"
 grep -q '"verdict":"correct"' "$TMP/body" || { echo "FAIL coach verdict missing" >&2; exit 1; }
 grep -q '"advance":true' "$TMP/body" || { echo "FAIL coach advance missing" >&2; exit 1; }
 cp "$TMP/body" "$TMP/coach-first.json"
-[ "$(calls /chat/completions)" = "$((chats_before + 2))" ] || { echo "FAIL want segment+judge calls" >&2; exit 1; }
+[ "$(calls /responses)" = "$((responses_before + 2))" ] || { echo "FAIL want segment+judge calls" >&2; exit 1; }
 echo "ok coach tick costs segment+judge (2 calls)"
 pass=$((pass + 1))
 check "meta-coach-repeat" 200 -X POST "$META/api/skills/$ID/coach" -H 'Content-Type: application/json' -d @"$TMP/frame.json"
 cmp -s "$TMP/coach-first.json" "$TMP/body" || { echo "FAIL deduped verdict differs" >&2; exit 1; }
-[ "$(calls /chat/completions)" = "$((chats_before + 2))" ] || { echo "FAIL repeated tick made new calls" >&2; exit 1; }
+[ "$(calls /responses)" = "$((responses_before + 2))" ] || { echo "FAIL repeated tick made new calls" >&2; exit 1; }
 echo "ok identical tick dedups to zero new calls with the same verdict"
 pass=$((pass + 1))
 # Streaming variant on a fresh frame: phases plus the meta verdict.
@@ -221,10 +224,11 @@ u = json.load(open(sys.argv[1]))
 assert u["apiCalls"]["total"] == 18, u["apiCalls"]
 assert u["framesSent"] == 6, u["framesSent"]
 assert u["transcriptCharsSent"] > 0, u["transcriptCharsSent"]
+assert u["tokens"]["total"] > 0, u.get("tokens")
 assert u["runs"]["learn"] == 2 and u["runs"]["lookup"] == 2, u["runs"]
 assert u["runs"]["coach"] == 3 and u["runs"]["coachMeta"] == 2, u["runs"]
 assert u["budgets"]["apiCallCap"] == 124, u["budgets"]
-print(f'ok cumulative usage: 18 calls {u["apiCalls"]["byModel"]}, dedup {u["dedupHits"]}')
+print(f'ok cumulative usage: 18 calls {u["apiCalls"]["byModel"]} tokens {u["tokens"]}, dedup {u["dedupHits"]}')
 EOF
 pass=$((pass + 1))
 stop_apps
@@ -245,20 +249,19 @@ stop_apps
 
 echo "--- phase D: frame budget holds on the metered path ---"
 PHASES=4 PHASE_SECS=3 sh scripts/make-placeholder-clip.sh "$TMP/clip12.mp4" >/dev/null
-b_chats="$(calls /chat/completions)"; b_audio="$(calls /audio/transcriptions)"
+b_responses="$(calls /responses)"
 b_imgs="$(calls /images/generations)"; b_total="$(calls)"
 APP_ENV="SHOWNCE_PROVIDER=meta META_API_KEY=fake-test-key META_API_BASE=http://127.0.0.1:$FAKE_PORT SHOWNCE_MODEL_FRAMES=8" \
   start_app "$META_PORT" "$TMP/budget-data" "$TMP/budget-cache"
 ID="$(curl -s -m 30 -F "clip=@$TMP/clip12.mp4;type=video/mp4" -F 'title=Budget probe' "$META/api/skills" | python3 -c 'import json,sys; print(json.load(sys.stdin)["skillId"])')"
 check "budget-learn-run" 200 -X POST "$META/api/skills/$ID/run"
-# 12 sampled frames reduced to the 8-frame budget: 8 segment + 1 fuse = 9
-# chats, +1 transcribe, +5 reference images = 15 calls (an unbudgeted run
-# would have cost 12+1+1+5 = 19).
-[ "$(( $(calls /chat/completions) - b_chats ))" = "9" ] || { echo "FAIL want 9 chats, diff $(( $(calls /chat/completions) - b_chats ))" >&2; exit 1; }
-[ "$(( $(calls /audio/transcriptions) - b_audio ))" = "1" ] || { echo "FAIL want 1 transcription" >&2; exit 1; }
+# 12 sampled frames reduced to the 8-frame budget: 8 segment + 1 transcribe
+# + 1 fuse = 10 /responses + 5 reference images = 15 calls (an unbudgeted
+# run would have cost 12+1+1+5 = 19).
+[ "$(( $(calls /responses) - b_responses ))" = "10" ] || { echo "FAIL want 10 responses, diff $(( $(calls /responses) - b_responses ))" >&2; exit 1; }
 [ "$(( $(calls /images/generations) - b_imgs ))" = "5" ] || { echo "FAIL want 5 reference images" >&2; exit 1; }
 [ "$(( $(calls) - b_total ))" = "15" ] || { echo "FAIL want 15 calls, diff $(( $(calls) - b_total ))" >&2; exit 1; }
-echo "ok 12-frame clip cost the 8-frame budget: 8+1+1+5=15 calls"
+echo "ok 12-frame clip cost the 8-frame budget: 10 responses + 5 images = 15 calls"
 pass=$((pass + 1))
 check "budget-usage-frames" 200 "$META/api/usage"
 python3 - "$TMP/body" <<'EOF'

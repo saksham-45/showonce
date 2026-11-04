@@ -1,6 +1,11 @@
+import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
+import * as os from "node:os";
 import { deflateSync } from "node:zlib";
+import { promisify } from "node:util";
+import * as path from "node:path";
 import { RunBudget, cacheKey, cachedBytes, cachedJson, sha256Hex } from "./apicache";
+import { audioContent, postResponsesText, visionContent } from "./metaresponses";
 import type {
   FrameSegmentation,
   SampledFrame,
@@ -39,41 +44,11 @@ export interface LearnProvider {
 
 // ---------------------------------------------------------------------------
 // Meta Model API provider (https://api.meta.ai/v1, Bearer META_API_KEY).
-// The API is OpenAI-compatible: Chat Completions / Responses / Messages
-// formats, audio transcription, and image generation endpoints. Request shapes
-// below follow that surface; they were written without a reachable key, so the
-// first live-key run is expected to confirm or correct them.
+// Every model call below is POST {apiBase}/responses (text prompts send a
+// plain input string; vision and audio prompts send input content parts),
+// shared with the coach judge through lib/metaresponses.ts. Reference
+// images still render through /images/generations, which serves them.
 // ---------------------------------------------------------------------------
-
-interface ChatMessage {
-  role: "system" | "user";
-  content: string;
-}
-
-async function chatCompletions(apiBase: string, apiKey: string, model: string, messages: ChatMessage[]): Promise<string> {
-  const res = await fetch(`${apiBase}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model, messages, response_format: { type: "json_object" } }),
-  });
-  if (!res.ok) {
-    throw new Error(`Meta API ${model} failed: ${res.status} ${await res.text()}`);
-  }
-  let body: { choices: { message: { content: string } }[] };
-  try {
-    body = (await res.json()) as { choices: { message: { content: string } }[] };
-  } catch {
-    throw new Error(`Meta API ${model} returned a non-JSON response.`);
-  }
-  const content = body.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new Error(`Meta API ${model} returned an unexpected response shape.`);
-  }
-  return content;
-}
 
 // Parse model-emitted JSON with the model named in the failure.
 function parseModelJson<T>(model: string, text: string): T {
@@ -110,6 +85,43 @@ export function capTranscriptChars(transcript: Transcript, budgetChars: number):
   return { segments: kept };
 }
 
+const execFileAsync = promisify(execFile);
+
+// The extracted track is a WAV; the Responses audio part takes mp3, so the
+// transcription call re-encodes it next to the OS temp dir (never into the
+// skill dir) and removes it afterwards. ffmpeg is already a hard pipeline
+// dependency (frame extraction shells to it).
+async function wavFileToMp3Bytes(audioPath: string): Promise<Buffer> {
+  const out = path.join(os.tmpdir(), `showonce-transcribe-${process.pid}.mp3`);
+  try {
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-v",
+      "error",
+      "-i",
+      audioPath,
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      "-codec:a",
+      "libmp3lame",
+      "-b:a",
+      "64k",
+      out,
+    ]);
+    return await fs.readFile(out);
+  } finally {
+    await fs.rm(out, { force: true });
+  }
+}
+
+// Transcription prompt: plain speech text, or NONE when the clip is silent.
+const TRANSCRIBE_PROMPT = "Transcribe any speech in this audio. If none, reply NONE.";
+
+const SEGMENT_PROMPT =
+  'List the visible hands, tools, and objects as JSON: {"regions": [{"label": string, "box": [x, y, w, h], "score": number}]} with normalized 0-1 boxes.';
+
 export function capRegionsPerFrame(segmentations: FrameSegmentation[], regionsPerFrame: number): FrameSegmentation[] {
   // Array sort is stable, so score ties keep their input order: the cut is
   // deterministic for the same segmentation.
@@ -132,10 +144,11 @@ export class MetaProvider implements LearnProvider {
     return { Authorization: `Bearer ${this.apiKey}` };
   }
 
-  // One chat call per frame: the SAM endpoint takes a single image, so no
-  // batch shape exists to use — the savings are the frame budget upstream
-  // plus this content-hash cache, which turns identical reruns (and
-  // duplicate frames inside one run) into zero new calls.
+  // One Responses call per frame: SAM takes a single image, so no batch
+  // shape exists to use — the savings are the frame budget upstream plus
+  // this content-hash cache, which turns identical reruns (and duplicate
+  // frames inside one run) into zero new calls. An empty answer means the
+  // model listed nothing, so the frame fuses with no regions.
   async segmentFrames(frames: SampledFrame[], framesDir: string): Promise<FrameSegmentation[]> {
     const out: FrameSegmentation[] = [];
     for (const frame of frames) {
@@ -145,31 +158,14 @@ export class MetaProvider implements LearnProvider {
         this.budget.consume("sam-3.1 frame segmentation");
         recordApiCall("sam-3.1");
         recordFrames(1);
-        const res = await fetch(`${this.apiBase}/chat/completions`, {
-          method: "POST",
-          headers: { ...this.headers(), "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "sam-3.1",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: 'List the visible hands, tools, and objects as JSON: {"regions": [{"label": string, "box": [x, y, w, h], "score": number}]} with normalized 0-1 boxes.' },
-                  { type: "image_url", image_url: { url: `data:image/jpeg;base64,${bytes.toString("base64")}` } },
-                ],
-              },
-            ],
-            response_format: { type: "json_object" },
-          }),
-        });
-        if (!res.ok) {
-          throw new Error(`Meta API sam-3.1 failed: ${res.status} ${await res.text()}`);
-        }
-        const body = (await res.json()) as { choices: { message: { content: string } }[] };
-        const parsed = parseModelJson<{ regions: FrameSegmentation["regions"] }>(
-          "sam-3.1",
-          body.choices[0].message.content,
-        );
+        const text = await postResponsesText(this.apiBase, this.apiKey, "sam-3.1", [
+          {
+            role: "user",
+            content: visionContent(SEGMENT_PROMPT, [`data:image/jpeg;base64,${bytes.toString("base64")}`]),
+          },
+        ]);
+        if (text.trim().length === 0) return { regions: [] };
+        const parsed = parseModelJson<{ regions: FrameSegmentation["regions"] }>("sam-3.1", text);
         return { regions: parsed.regions ?? [] };
       });
       out.push({ frame: frame.file, regions: value.regions });
@@ -179,27 +175,16 @@ export class MetaProvider implements LearnProvider {
 
   async transcribe(audioPath: string): Promise<Transcript> {
     const audio = await fs.readFile(audioPath);
-    const key = cacheKey({ model: "muse-voice-transcribe-1.0", kind: "transcript", audio: sha256Hex(audio) });
+    const key = cacheKey({ model: "muse-spark-1.3", kind: "transcript", audio: sha256Hex(audio) });
     const { value } = await cachedJson<Transcript>("transcript", key, async () => {
-      this.budget.consume("muse-voice transcription");
-      recordApiCall("muse-voice-transcribe-1.0");
-      const form = new FormData();
-      form.append("model", "muse-voice-transcribe-1.0");
-      form.append("file", new Blob([audio], { type: "audio/wav" }), "audio.wav");
-      form.append("response_format", "verbose_json");
-      const res = await fetch(`${this.apiBase}/audio/transcriptions`, {
-        method: "POST",
-        headers: this.headers(),
-        body: form,
-      });
-      if (!res.ok) {
-        throw new Error(`Meta API muse-voice-transcribe-1.0 failed: ${res.status} ${await res.text()}`);
-      }
-      const body = (await res.json()) as { segments?: { start: number; end: number; text: string }[]; text?: string };
-      if (body.segments) {
-        return { segments: body.segments.map((s) => ({ startSeconds: s.start, endSeconds: s.end, text: s.text })) };
-      }
-      return { segments: [{ startSeconds: 0, endSeconds: 0, text: body.text ?? "" }] };
+      this.budget.consume("muse-spark transcription");
+      recordApiCall("muse-spark-1.3");
+      const mp3 = await wavFileToMp3Bytes(audioPath);
+      const text = await postResponsesText(this.apiBase, this.apiKey, "muse-spark-1.3", [
+        { role: "user", content: audioContent(TRANSCRIBE_PROMPT, mp3.toString("base64")) },
+      ]);
+      if (text.trim().length === 0 || text.trim().toUpperCase() === "NONE") return { segments: [] };
+      return { segments: [{ startSeconds: 0, endSeconds: 0, text: text.trim() }] };
     });
     return value;
   }
@@ -220,14 +205,11 @@ export class MetaProvider implements LearnProvider {
       this.budget.consume("muse-spark fuse");
       recordApiCall("muse-spark-1.3");
       recordTranscriptChars(transcriptChars);
-      const content = await chatCompletions(
+      const content = await postResponsesText(
         this.apiBase,
         this.apiKey,
         "muse-spark-1.3",
-        [
-          { role: "system", content: FUSE_SYSTEM_PROMPT },
-          { role: "user", content: JSON.stringify(payload) },
-        ],
+        `${FUSE_SYSTEM_PROMPT}\n${JSON.stringify(payload)}`,
       );
       return parseModelJson<{ title: string; steps: StepDraft[] }>("muse-spark-1.3", content);
     });

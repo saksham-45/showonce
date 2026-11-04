@@ -10,6 +10,7 @@
 // camera tick keeps moving.
 
 import { createHash } from "node:crypto";
+import { postResponsesText, visionContent } from "./metaresponses";
 import type { SkillStep } from "./skillgraph";
 import { recordApiCall, recordCoachRequest } from "./usage";
 
@@ -127,65 +128,32 @@ function verdictFrom(value: unknown): CoachVerdict {
   return value === "correct" || value === "wrong" ? value : "nudge";
 }
 
-interface MetaChatContent {
-  role: "user";
-  content: unknown[];
-}
-
-async function postChat(
-  apiBase: string,
-  apiKey: string,
-  model: string,
-  messages: MetaChatContent[],
-  timeoutMs: number,
-): Promise<string> {
-  const res = await fetch(`${apiBase}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model, messages, response_format: { type: "json_object" } }),
-    // Time-bound: a hung model call aborts instead of stalling the loop.
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) {
-    throw new Error(`Meta API ${model} failed: ${res.status} ${await res.text()}`);
-  }
-  const body = (await res.json()) as { choices: { message: { content: string } }[] };
-  return body.choices[0].message.content;
-}
+const SEGMENT_PROMPT =
+  'List the visible hands, tools, and objects as JSON: {"regions": [{"label": string, "box": [x, y, w, h], "score": number}]} with normalized 0-1 boxes.';
 
 // SAM 3.1 segments the live frame; the region summary grounds the Spark
 // vision judgement that follows. Segmentation failure is non-fatal: the
-// vision call still runs without it.
+// vision call still runs without it — and so is an empty answer, which
+// degrades to "unavailable" the same way.
 async function segmentLiveFrame(
   apiBase: string,
   apiKey: string,
   frameBytes: Buffer,
 ): Promise<string> {
-  const content = await postChat(
+  const text = await postResponsesText(
     apiBase,
     apiKey,
     "sam-3.1",
     [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: 'List the visible hands, tools, and objects as JSON: {"regions": [{"label": string, "box": [x, y, w, h], "score": number}]} with normalized 0-1 boxes.',
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:image/jpeg;base64,${frameBytes.toString("base64")}` },
-          },
-        ],
+        content: visionContent(SEGMENT_PROMPT, [`data:image/jpeg;base64,${frameBytes.toString("base64")}`]),
       },
     ],
-    SEGMENT_TIMEOUT_MS,
+    // Time-bound: a hung model call aborts instead of stalling the loop.
+    { timeoutMs: SEGMENT_TIMEOUT_MS },
   );
-  return content;
+  return text.trim().length > 0 ? text : "unavailable";
 }
 
 // Spark vision judges the live frame against the step checkpoint.
@@ -206,17 +174,11 @@ async function metaCompare(
   }
   onPhase?.("judging");
 
-  const images: unknown[] = [
-    {
-      type: "image_url",
-      image_url: { url: `data:image/jpeg;base64,${frameBytes.toString("base64")}` },
-    },
-  ];
+  // Live frame first, reference second — the prompt below names them in
+  // this order.
+  const images: string[] = [`data:image/jpeg;base64,${frameBytes.toString("base64")}`];
   if (referenceBytes) {
-    images.push({
-      type: "image_url",
-      image_url: { url: `data:image/png;base64,${referenceBytes.toString("base64")}` },
-    });
+    images.push(`data:image/png;base64,${referenceBytes.toString("base64")}`);
   }
 
   const prompt = [
@@ -239,12 +201,12 @@ async function metaCompare(
   ].join(" ");
 
   recordApiCall("muse-spark-1.3");
-  const raw = await postChat(
+  const raw = await postResponsesText(
     apiBase,
     apiKey,
     "muse-spark-1.3",
-    [{ role: "user", content: [{ type: "text", text: prompt }, ...images] }],
-    JUDGE_TIMEOUT_MS,
+    [{ role: "user", content: visionContent(prompt, images) }],
+    { timeoutMs: JUDGE_TIMEOUT_MS },
   );
   let parsed: { verdict?: unknown; correction?: unknown; advance?: unknown };
   try {

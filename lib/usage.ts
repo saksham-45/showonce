@@ -2,12 +2,12 @@
 // Model API call the app attempts, plus the cache/dedup hits that avoided
 // one. Counters reset on restart (documented follow-up: persist them); the
 // per-run log lines give test runs their itemized view and GET /api/usage
-// plus the home page section give the cumulative one.
+// plus the profile page section give the cumulative one.
 //
-// Token totals are not reported: the response shapes used here do not
-// guarantee a usage field, so the ledger records what is always known —
-// call counts by model, budgeted frames, transcript characters, and image
-// payload bytes — instead of inventing token numbers.
+// Token totals accumulate from Responses API `usage` blocks when present;
+// the ledger otherwise records what is always known — call counts by
+// model, budgeted frames, transcript characters, and image payload
+// bytes — instead of inventing token numbers.
 
 export interface UsageSnapshot {
   startedAt: string;
@@ -19,6 +19,7 @@ export interface UsageSnapshot {
   framesSent: number;
   transcriptCharsSent: number;
   referenceImages: number;
+  tokens: { input: number; output: number; total: number };
 }
 
 const state = {
@@ -34,10 +35,20 @@ const state = {
   framesSent: 0,
   transcriptCharsSent: 0,
   referenceImages: 0,
+  tokensInput: 0,
+  tokensOutput: 0,
 };
 
 export function recordApiCall(model: string): void {
   state.apiCallsByModel[model] = (state.apiCallsByModel[model] ?? 0) + 1;
+}
+
+// Token totals from Responses API `usage` blocks, when present. Only
+// finite positive counts accumulate, so a malformed block cannot poison
+// the ledger.
+export function recordTokenUsage(inputTokens: number, outputTokens: number): void {
+  if (Number.isFinite(inputTokens) && inputTokens > 0) state.tokensInput += Math.floor(inputTokens);
+  if (Number.isFinite(outputTokens) && outputTokens > 0) state.tokensOutput += Math.floor(outputTokens);
 }
 
 export function recordCacheHit(): void {
@@ -90,6 +101,11 @@ export function usageSnapshot(): UsageSnapshot {
     framesSent: state.framesSent,
     transcriptCharsSent: state.transcriptCharsSent,
     referenceImages: state.referenceImages,
+    tokens: {
+      input: state.tokensInput,
+      output: state.tokensOutput,
+      total: state.tokensInput + state.tokensOutput,
+    },
   };
 }
 
